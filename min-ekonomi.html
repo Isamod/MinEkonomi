@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Min Ekonomi</title>
+<style>
+/* ── DESIGN TOKENS ──────────────────────────────────────────────────────── */
+:root {
+  --bg:    #2a2923; /* dark base */
+  --bg2:   #333330; /* card */
+  --bg3:   #3d3c37; /* input */
+  --bd:    #4e4d46;
+  --bd2:   #62615a;
+  --tx:    #f2ede3; /* 13.7:1 on bg  ✓ AAA */
+  --tx2:   #c3bdb0; /* 8.7:1 on bg   ✓ AAA */
+  --tx3:   #9e9890; /* 5.4:1 on bg   ✓ AA  */
+  --pink:  #fac7e6; /* 9.0:1 on bg   ✓ AAA */
+  --green: #98c474; /* 7.7:1 on bg   ✓ AAA */
+  --purp:  #b48ec0; /* 6.0:1 on bg   ✓ AA  */
+  --red:   #f28b8b; /* 4.9:1 on bg   ✓ AA  */
+  --amb:   #e8c070; /* 8.9:1 on bg   ✓ AAA */
+  --gbg:   #1b2714;
+  --rbg:   #2e1414;
+  --pbg:   #3a2232;
+  --ambg:  #2e2610;
+  --r: 10px; --r2: 14px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--tx); min-height: 100vh; line-height: 1.5; }
+.app { max-width: 920px; margin: 0 auto; padding: 0 0 4rem; }
+
+/* ── TYPOGRAPHY ─────────────────────────────────────────────────────────── */
+.lbl { font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tx3); display: block; margin-bottom: 6px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--tx2); margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+
+/* ── LAYOUT ─────────────────────────────────────────────────────────────── */
+.card { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 1.25rem; margin-bottom: .85rem; }
+.card-accent { border-top: 3px solid var(--pink); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; }
+.g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.mets { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 1rem; }
+
+/* ── INPUTS ─────────────────────────────────────────────────────────────── */
+.iw { position: relative; }
+.iw .px { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--tx3); pointer-events: none; z-index: 1; }
+input[type=text], input[type=email], input[type=password], input[type=number] {
+  width: 100%; background: var(--bg3); border: 1px solid var(--bd); border-radius: var(--r); color: var(--tx);
+  font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s, background .15s;
+  padding: 9px 10px 9px 28px;
+}
+input.nopx { padding-left: 10px; }
+input:focus { border-color: var(--pink); background: #46453f; }
+input::placeholder { color: var(--tx3); }
+input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* ── BUTTONS ─────────────────────────────────────────────────────────────── */
+button { font-family: inherit; cursor: pointer; border: none; transition: opacity .12s, transform .1s; }
+button:active { transform: scale(.97); }
+.btn-primary { background: var(--pink); color: #1e1209; font-size: 13px; font-weight: 600; padding: 10px 20px; border-radius: var(--r); }
+.btn-primary:hover { opacity: .88; }
+.btn-secondary { background: none; border: 1px solid var(--bd2); color: var(--tx2); font-size: 12px; padding: 8px 16px; border-radius: var(--r); }
+.btn-secondary:hover { border-color: var(--pink); color: var(--pink); }
+.btn-ghost { background: none; color: var(--tx3); font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid transparent; }
+.btn-ghost:hover { border-color: var(--bd); color: var(--tx2); }
+.btn-danger { background: none; border: 1px solid var(--bd); color: var(--red); font-size: 11px; padding: 5px 10px; border-radius: var(--r); }
+.btn-danger:hover { background: var(--rbg); }
+.btn-full { width: 100%; padding: 11px; border-radius: var(--r); font-size: 13px; font-weight: 600; }
+.add-row { width: 100%; padding: 8px; border: 1px dashed var(--bd); border-radius: var(--r); background: none; font-size: 11px; color: var(--tx3); margin-top: 6px; }
+.add-row:hover { border-color: var(--green); color: var(--green); background: var(--gbg); }
+.rm { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--bd); background: none; color: var(--tx3); font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rm:hover { background: var(--rbg); border-color: var(--red); color: var(--red); }
+.toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--bd2); border: none; position: relative; transition: background .2s; flex-shrink: 0; }
+.toggle.on { background: var(--green); }
+.toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: left .2s; }
+.toggle.on::after { left: 19px; }
+
+/* ── METRICS ─────────────────────────────────────────────────────────────── */
+.met { background: var(--bg3); border-radius: var(--r); padding: .85rem; }
+.met-l { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--tx3); margin-bottom: 4px; }
+.met-v { font-size: 18px; font-family: Georgia, serif; letter-spacing: -.02em; }
+
+/* ── FEEDBACK ────────────────────────────────────────────────────────────── */
+.tip { font-size: 12px; border-radius: var(--r); padding: .7rem .9rem; margin-top: .75rem; line-height: 1.55; border-left: 3px solid; }
+.tip-ok  { color: var(--green); background: var(--gbg);  border-color: var(--green); }
+.tip-w   { color: var(--amb);   background: var(--ambg); border-color: var(--amb); }
+.tip-err { color: var(--red);   background: var(--rbg);  border-color: var(--red); }
+.tip-n   { color: var(--tx2);   background: var(--bg3);  border-color: var(--bd2); }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 0 4px; }
+
+/* ── TABS ────────────────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 2px; padding: 0 1.25rem; margin-bottom: .9rem; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab-btn { padding: 7px 14px; border-radius: var(--r); background: none; color: var(--tx3); font-size: 13px; white-space: nowrap; border: none; }
+.tab-btn.on { background: var(--bg2); color: var(--pink); font-weight: 600; border: 1px solid var(--bd); }
+
+/* ── HEADER ─────────────────────────────────────────────────────────────── */
+.hdr { padding: .9rem 1.25rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--bd); margin-bottom: .9rem; gap: 10px; flex-wrap: wrap; }
+.hdr-brand { font-size: 11px; text-transform: uppercase; letter-spacing: .14em; color: var(--pink); font-weight: 600; }
+.hdr-user { font-size: 13px; color: var(--tx2); }
+
+/* ── MONTH NAV ───────────────────────────────────────────────────────────── */
+.month-nav { display: flex; align-items: center; gap: 5px; }
+.month-nav button { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--bd); background: none; color: var(--tx2); font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.month-nav select { background: var(--bg2); border: 1px solid var(--bd); color: var(--tx); border-radius: var(--r); padding: 4px 8px; font-size: 12px; font-family: inherit; outline: none; cursor: pointer; }
+
+/* ── AUTH ────────────────────────────────────────────────────────────────── */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.auth-box { width: 100%; max-width: 360px; }
+.auth-logo { text-align: center; margin-bottom: 2rem; }
+.auth-logo-mark { font-size: 28px; font-family: Georgia, serif; color: var(--pink); letter-spacing: -.03em; }
+.auth-logo-sub { font-size: 11px; text-transform: uppercase; letter-spacing: .15em; color: var(--tx3); margin-top: 4px; }
+.auth-card { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 1.75rem; }
+.auth-title { font-size: 17px; font-weight: 600; color: var(--tx); margin-bottom: 1.25rem; }
+.field { margin-bottom: .85rem; }
+.field label { display: block; font-size: 11px; color: var(--tx2); margin-bottom: 5px; font-weight: 500; }
+.auth-link { font-size: 12px; color: var(--tx3); text-align: center; margin-top: .85rem; }
+.auth-link span { color: var(--pink); cursor: pointer; text-decoration: underline; }
+.auth-divider { text-align: center; margin: .85rem 0; font-size: 11px; color: var(--tx3); }
+
+/* ── 50/30/20 GRID ───────────────────────────────────────────────────────── */
+.rule-grid { border-radius: var(--r); overflow: hidden; border: 1px solid var(--bd); margin-bottom: .85rem; }
+.rule-cell { padding: 1rem; }
+.rule-cell.needs { background: #1a2535; }
+.rule-cell.wants { background: #2d1e10; }
+.rule-cell.saves { background: var(--gbg); }
+.rule-pct { font-size: 26px; font-family: Georgia, serif; letter-spacing: -.02em; margin-bottom: 3px; }
+.rule-cell.needs .rule-pct { color: #7ab3f0; }
+.rule-cell.wants .rule-pct { color: var(--amb); }
+.rule-cell.saves .rule-pct { color: var(--green); }
+.rule-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .12em; font-weight: 600; margin-bottom: 8px; }
+.rule-cell.needs .rule-lbl { color: #7ab3f0; }
+.rule-cell.wants .rule-lbl { color: var(--amb); }
+.rule-cell.saves .rule-lbl { color: var(--green); }
+
+/* ── PROGRESS BAR ────────────────────────────────────────────────────────── */
+.prog-t { height: 7px; border-radius: 4px; background: var(--bg3); overflow: hidden; }
+.prog-f { height: 100%; border-radius: 4px; transition: width .4s; }
+
+/* ── JAR CARDS ───────────────────────────────────────────────────────────── */
+.jar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; margin-top: .85rem; }
+.jar-card { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--r2); padding: 1rem; border-top-width: 3px; border-top-style: solid; }
+.jar-card.hidden-jar { opacity: .55; }
+
+/* ── SHARED / NOTIF ──────────────────────────────────────────────────────── */
+.notif-panel { background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--r2); margin-bottom: .85rem; overflow: hidden; }
+.notif-item { padding: 1rem 1.1rem; border-bottom: 1px solid var(--bd); display: flex; flex-direction: column; gap: 8px; }
+.notif-item:last-child { border-bottom: none; }
+
+/* ── SPINNER ─────────────────────────────────────────────────────────────── */
+.spin { width: 20px; height: 20px; border: 2px solid var(--bd); border-top-color: var(--pink); border-radius: 50%; animation: rot .7s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.loading-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
+.content { padding: 0 1.25rem; }
+@media (max-width: 600px) {
+  .hdr { padding: .75rem 1rem; }
+  .content { padding: 0 .85rem; }
+  .tabs { padding: 0 .85rem; }
+  .g2 { grid-template-columns: 1fr; }
+  .g3 { grid-template-columns: 1fr; }
+  .g4 { grid-template-columns: 1fr 1fr; }
+  .mets { grid-template-columns: 1fr 1fr; }
+  .rule-grid .g3 { grid-template-columns: 1fr; }
+  .met-v { font-size: 15px; }
+}
+@media (max-width: 380px) {
+  .g4 { grid-template-columns: 1fr; }
+  .jar-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ① Fill in your Supabase credentials here -->
+<script>
+const SUPA_URL  = 'https://hgrezqwuebguvejmycqx.supabase.co/rest/v1/';   // e.g. https://xxxx.supabase.co
+const SUPA_KEY  = 'sb_publishable_HYTSIccPYCcR6zRHFj-GEQ_Tqilw9a7';
+</script>
+
+<!-- ② CDN scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<!-- ③ Application -->
+<script>
+'use strict';
+// ─── INIT ────────────────────────────────────────────────────────────────────
+const { createClient } = window.supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+const { useState, useEffect, useRef, useCallback } = React;
+const h = React.createElement;
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const MN = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+const JC = ['#fac7e6','#98c474','#b48ec0','#e8c070','#7ab3f0','#f28b8b','#80d4b8','#e8a870'];
+const todayMK = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+const fmtMK   = k => { const [y,m] = k.split('-'); return `${MN[+m-1]} ${y}`; };
+const prevMK  = k => { const [y,m] = k.split('-').map(Number); const d = new Date(y,m-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+const nextMK  = k => { const [y,m] = k.split('-').map(Number); const d = new Date(y,m,1);   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
+const kr  = n => Math.round(n).toLocaleString('sv-SE') + ' kr';
+const fmtS = n => n>=1e6 ? (n/1e6).toFixed(1).replace('.',',')+' mnkr' : n>=1000 ? Math.round(n/1000)+' tkr' : Math.round(n)+' kr';
+const pct = (a,b) => b ? Math.round(a/b*100) : 0;
+const fvCalc = (b,m,months,r) => { const mr=r/100/12; return mr===0 ? b+m*months : b*Math.pow(1+mr,months)+m*(Math.pow(1+mr,months)-1)/mr; };
+const defBudget = () => ({ income:35000, existing:0, expenses:[
+  {id:'e1',name:'Hyra / boende',amount:9500,type:'fixed'},
+  {id:'e2',name:'Mat & dagligvaror',amount:3500,type:'fixed'},
+  {id:'e3',name:'Transport',amount:1200,type:'fixed'},
+  {id:'e4',name:'El & internet',amount:500,type:'fixed'},
+  {id:'e5',name:'Nöje & restaurang',amount:2000,type:'fun'},
+  {id:'e6',name:'Kläder & shopping',amount:800,type:'fun'},
+  {id:'e7',name:'Streaming',amount:350,type:'fun'}
+]});
+
+// ─── SUPABASE HELPERS ────────────────────────────────────────────────────────
+const dbProfile   = uid  => db.from('profiles').select('*').eq('id',uid).single();
+const dbSaveProf  = data => db.from('profiles').upsert(data);
+const dbBudget    = (uid,mk) => db.from('budgets').select('*').eq('user_id',uid).eq('month_key',mk).maybeSingle();
+const dbSaveBudg  = data => db.from('budgets').upsert(data, {onConflict:'user_id,month_key'});
+const dbBudgMths  = uid  => db.from('budgets').select('month_key').eq('user_id',uid);
+const dbJars      = uid  => db.from('jars').select('*').eq('user_id',uid).order('sort_order');
+const dbAddJar    = data => db.from('jars').insert(data).select().single();
+const dbUpdJar    = (id,d) => db.from('jars').update(d).eq('id',id);
+const dbDelJar    = id   => db.from('jars').delete().eq('id',id);
+const dbNotifs    = uid  => db.from('notifications').select('*').eq('user_id',uid).eq('read',false).order('created_at',{ascending:false});
+const dbMarkRead  = id   => db.from('notifications').update({read:true}).eq('id',id);
+const dbMarkAllRead = uid => db.from('notifications').update({read:true}).eq('user_id',uid);
+const dbFindEmail = email => db.rpc('find_user_by_email', {p_email: email.toLowerCase()});
+const dbSGoals    = uid  => db.from('shared_goal_members').select('*, shared_goals(*)').eq('user_id',uid).neq('status','declined');
+const dbSMembers  = goalIds => db.from('shared_goal_members').select('*, profiles(name,email)').in('goal_id',goalIds);
+
+// ─── COMMON UI COMPONENTS ────────────────────────────────────────────────────
+function NumInput({value, onChange, prefix='kr', onBlurSave, step=1, min=0}) {
+  const [display, setDisplay] = useState(value===0 ? '' : String(value));
+  useEffect(() => { setDisplay(value===0 ? '' : String(value)); }, [value]);
+  const handleChange = e => { setDisplay(e.target.value); const n=parseFloat(e.target.value)||0; onChange(n); };
+  const handleFocus  = e => { if(display==='0'||display==='') { setDisplay(''); e.target.select(); } };
+  const handleBlur   = () => { if(display===''||display===undefined) setDisplay('0'); if(onBlurSave) onBlurSave(); };
+  return h('div',{className:'iw'},
+    prefix && h('span',{className:'px'},prefix),
+    h('input',{type:'text',inputMode:'decimal',value:display,onChange:handleChange,onFocus:handleFocus,onBlur:handleBlur})
+  );
+}
+function TxtInput({value, onChange, ph='', type='text', cls='nopx'}) {
+  return h('input',{type,value,onChange:e=>onChange(e.target.value),placeholder:ph,className:cls});
+}
+function Met({lbl, val, col}) {
+  return h('div',{className:'met'},
+    h('div',{className:'met-l',style:col?{color:col}:{}},lbl),
+    h('div',{className:'met-v',style:col?{color:col}:{}},val)
+  );
+}
+function Tip({text,type='n'}) { return h('div',{className:`tip tip-${type}`},text); }
+function Lbl({t}) { return h('span',{className:'lbl'},t); }
+function Card({children,style={},accent=false}) { return h('div',{className:`card${accent?' card-accent':''}`,style},children); }
+function Spin() { return h('div',{className:'spin'}); }
+
+// ─── PROGNOSIS CHART ─────────────────────────────────────────────────────────
+function ProjChart({data, years}) {
+  const cvs = useRef(null); const chart = useRef(null);
+  useEffect(() => {
+    if (!cvs.current) return;
+    if (chart.current) { chart.current.destroy(); chart.current=null; }
+    chart.current = new Chart(cvs.current, {
+      type:'line',
+      data:{labels:data.map(d=>d.yr),datasets:[
+        {label:'Med avkastning',data:data.map(d=>d.wi),borderColor:'#98c474',backgroundColor:'rgba(152,196,116,.1)',fill:true,tension:.35,pointRadius:years<=12?3:0,borderWidth:2},
+        {label:'Utan avkastning',data:data.map(d=>d.ni),borderColor:'#4e4d46',borderDash:[5,4],fill:false,tension:.35,pointRadius:0,borderWidth:1.5}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+Math.round(ctx.raw).toLocaleString('sv-SE')+' kr'},
+          backgroundColor:'#333330',titleColor:'#f2ede3',bodyColor:'#c3bdb0',borderColor:'#4e4d46',borderWidth:1}},
+        scales:{
+          x:{grid:{color:'#3d3c37'},ticks:{color:'#9e9890',font:{size:10}},border:{color:'#4e4d46'}},
+          y:{grid:{color:'#3d3c37'},ticks:{color:'#9e9890',font:{size:10},callback:v=>fmtS(v)},border:{color:'#4e4d46'}}
+        }
+      }
+    });
+    return () => { if(chart.current){chart.current.destroy();chart.current=null;} };
+  }, [data]);
+  return h('div',{style:{position:'relative',height:'220px',marginTop:'.85rem'}},
+    h('canvas',{ref:cvs,role:'img','aria-label':'Sparandets tillväxt'},'Sparandets tillväxt.')
+  );
+}
+
+// ─── AUTH PAGE ────────────────────────────────────────────────────────────────
+function AuthPage() {
+  const [mode, setMode] = useState('login'); // login | register | forgot | sent | reset
+  const [form, setForm] = useState({name:'',email:'',pw:'',pw2:'',newpw:''});
+  const [err, setErr]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const f = k => v => setForm(p=>({...p,[k]:v}));
+
+  const handleLogin = async () => {
+    setErr(''); setLoading(true);
+    const {error} = await db.auth.signInWithPassword({email:form.email.trim(),password:form.pw});
+    if (error) setErr(error.message==='Invalid login credentials'?'Fel e-post eller lösenord.':error.message);
+    setLoading(false);
+  };
+  const handleRegister = async () => {
+    setErr('');
+    if (!form.name.trim()) return setErr('Ange ditt namn.');
+    if (!form.email.includes('@')) return setErr('Ange en giltig e-postadress.');
+    if (form.pw.length<6) return setErr('Lösenordet måste vara minst 6 tecken.');
+    if (form.pw!==form.pw2) return setErr('Lösenorden matchar inte.');
+    setLoading(true);
+    const {error} = await db.auth.signUp({email:form.email.trim().toLowerCase(),password:form.pw,options:{data:{name:form.name.trim()},emailRedirectTo:window.location.href}});
+    if (error) setErr(error.message);
+    else setMode('sent');
+    setLoading(false);
+  };
+  const handleForgot = async () => {
+    setErr('');
+    if (!form.email.includes('@')) return setErr('Ange en giltig e-postadress.');
+    setLoading(true);
+    const {error} = await db.auth.resetPasswordForEmail(form.email.trim().toLowerCase(),{redirectTo:window.location.href});
+    if (error) setErr(error.message);
+    else setMode('sent_reset');
+    setLoading(false);
+  };
+  const handleReset = async () => {
+    setErr('');
+    if (form.newpw.length<6) return setErr('Lösenordet måste vara minst 6 tecken.');
+    setLoading(true);
+    const {error} = await db.auth.updateUser({password:form.newpw});
+    if (error) setErr(error.message);
+    setLoading(false);
+  };
+
+  const Logo = () => h('div',{className:'auth-logo'},
+    h('div',{className:'auth-logo-mark'},'Min Ekonomi'),
+    h('div',{className:'auth-logo-sub'},'Personlig finans')
+  );
+
+  if (mode==='sent') return h('div',{className:'auth-wrap'},h('div',{className:'auth-box'},h(Logo),
+    h('div',{className:'auth-card'},
+      h('div',{className:'auth-title',style:{color:'var(--green)'}},'Konto skapat!'),
+      h('p',{style:{fontSize:13,color:'var(--tx2)',lineHeight:1.6}},'Kolla din e-post och klicka på bekräftelselänken för att aktivera ditt konto. Kontrollera skräpposten om du inte hittar den.'),
+      h('button',{className:'btn-primary btn-full',style:{marginTop:'1rem'},onClick:()=>setMode('login')},'Tillbaka till inloggning')
+    )
+  ));
+  if (mode==='sent_reset') return h('div',{className:'auth-wrap'},h('div',{className:'auth-box'},h(Logo),
+    h('div',{className:'auth-card'},
+      h('div',{className:'auth-title',style:{color:'var(--pink)'}},'Återställning skickat'),
+      h('p',{style:{fontSize:13,color:'var(--tx2)',lineHeight:1.6}},'Vi har skickat ett återställningsmail till '+ form.email +'. Klicka på länken i mailet för att välja nytt lösenord.'),
+      h('button',{className:'btn-primary btn-full',style:{marginTop:'1rem'},onClick:()=>setMode('login')},'Tillbaka')
+    )
+  ));
+  if (mode==='reset') return h('div',{className:'auth-wrap'},h('div',{className:'auth-box'},h(Logo),
+    h('div',{className:'auth-card'},
+      h('div',{className:'auth-title'},'Välj nytt lösenord'),
+      h('div',{className:'field'},h('label',null,'Nytt lösenord'),h(TxtInput,{value:form.newpw,onChange:f('newpw'),ph:'Minst 6 tecken',type:'password',cls:'nopx'})),
+      err && h(Tip,{text:err,type:'err'}),
+      h('button',{className:'btn-primary btn-full',style:{marginTop:'1rem'},onClick:handleReset,disabled:loading},loading?'Sparar…':'Spara lösenord')
+    )
+  ));
+
+  return h('div',{className:'auth-wrap'},h('div',{className:'auth-box'},
+    h(Logo),
+    h('div',{className:'auth-card'},
+      mode==='login' && h('div',null,
+        h('div',{className:'auth-title'},mode==='forgot'?'Glömt lösenord':'Logga in'),
+        h('div',{className:'field'},h('label',null,'E-postadress'),h(TxtInput,{value:form.email,onChange:f('email'),ph:'namn@hotmail.com',type:'email',cls:'nopx'})),
+        h('div',{className:'field'},h('label',null,'Lösenord'),h(TxtInput,{value:form.pw,onChange:f('pw'),ph:'••••••',type:'password',cls:'nopx'})),
+        err && h(Tip,{text:err,type:'err'}),
+        h('button',{className:'btn-primary btn-full',style:{marginTop:'1rem'},onClick:handleLogin,disabled:loading},loading?h(Spin):null,loading?' Loggar in…':'Logga in'),
+        h('div',{className:'auth-divider'},h('span',{style:{cursor:'pointer',color:'var(--tx3)',textDecoration:'underline',fontSize:12},onClick:()=>{setMode('forgot');setErr('');}},'Glömt lösenord?')),
+        h('div',{className:'auth-link'},'Inget konto? ',h('span',{onClick:()=>{setMode('register');setErr('');}},'Skapa konto'))
+      ),
+      mode==='register' && h('div',null,
+        h('div',{className:'auth-title'},'Skapa konto'),
+        h('div',{className:'field'},h('label',null,'Ditt namn'),h(TxtInput,{value:form.name,onChange:f('name'),ph:'Förnamn Efternamn',cls:'nopx'})),
+        h('div',{className:'field'},h('label',null,'E-postadress'),h(TxtInput,{value:form.email,onChange:f('email'),ph:'namn@hotmail.com',type:'email',cls:'nopx'})),
+        h('div',{className:'field'},h('label',null,'Lösenord'),h(TxtInput,{value:form.pw,onChange:f('pw'),ph:'Minst 6 tecken',type:'password',cls:'nopx'})),
+        h('div',{className:'field'},h('label',null,'Bekräfta lösenord'),h(TxtInput,{value:form.pw2,onChange:f('pw2'),ph:'••••••',type:'password',cls:'nopx'})),
+        err && h(Tip,{text:err,type:'err'}),
+        h('button',{className:'btn-primary btn-full',style:{marginTop:'1rem'},onClick:handleRegister,disabled:loading},loading?'Skapar…':'Skapa konto'),
+        h('div',{className:'auth-link'},'Har du konto? ',h('span',{onClick:()=>{setMode('login');setErr('');}},'Logga in'))
+      ),
+      mode==='forgot' && h('div',null,
+        h('div',{className:'auth-title'},'Glömt lösenord'),
+        h('p',{style:{fontSize:12,color:'var(--tx2)',marginBottom:'1rem'}},'Ange din e-postadress så skickar vi en återställningslänk.'),
+        h('div',{className:'field'},h('label',null,'E-postadress'),h(TxtInput,{value:form.email,onChange:f('email'),ph:'namn@hotmail.com',type:'email',cls:'nopx'})),
+        err && h(Tip,{text:err,type:'err'}),
+        h('button',{className:'btn-primary btn-full',style:{marginTop:'1rem'},onClick:handleForgot,disabled:loading},loading?'Skickar…':'Skicka återställningsmail'),
+        h('div',{className:'auth-link'},h('span',{onClick:()=>{setMode('login');setErr('');}},'‹ Tillbaka'))
+      )
+    )
+  ));
+}
+
+// ─── BUDGET TAB ───────────────────────────────────────────────────────────────
+function BudgetTab({budget, onChange, totalJarMon, visibleJarMon}) {
+  const fixed = budget.expenses.filter(e=>e.type==='fixed').reduce((s,e)=>s+e.amount,0);
+  const fun   = budget.expenses.filter(e=>e.type==='fun').reduce((s,e)=>s+e.amount,0);
+  const totalExp = fixed+fun;
+  const disposable = budget.income - totalExp - visibleJarMon;
+  const needPct = pct(fixed,budget.income), wantPct = pct(fun,budget.income), savePct = pct(visibleJarMon,budget.income);
+  let expIdRef = useRef(Date.now());
+
+  const setIncome   = v => onChange({...budget,income:v});
+  const setExisting = v => onChange({...budget,existing:v});
+  const addExp      = type => { const id='e'+expIdRef.current++; onChange({...budget,expenses:[...budget.expenses,{id,name:'',amount:0,type}]}); };
+  const removeExp   = id => onChange({...budget,expenses:budget.expenses.filter(e=>e.id!==id)});
+  const setExpField = (id,field,val) => onChange({...budget,expenses:budget.expenses.map(e=>e.id===id?{...e,[field]:field==='amount'?val:val}:e)});
+
+  const issues = [];
+  if(needPct>50) issues.push(`fasta kostnader ${needPct}%`);
+  if(wantPct>30) issues.push(`nöje ${wantPct}%`);
+  if(savePct<20) issues.push(`sparande ${savePct}%`);
+
+  return h('div',null,
+    h(Card,null,
+      h(Lbl,{t:'Inkomst & sparande'}),
+      h('div',{className:'g2',style:{marginBottom:'1rem'}},
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Månadsinkomst (netto)'),h(NumInput,{value:budget.income,onChange:setIncome})),
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Befintligt totalt sparande'),h(NumInput,{value:budget.existing,onChange:setExisting}))
+      ),
+      h('div',{className:'mets'},
+        h(Met,{lbl:'Kvar efter allt',val:kr(disposable),col:disposable<0?'var(--red)':'var(--green)'}),
+        h(Met,{lbl:'Utgifter/mån',val:kr(totalExp)}),
+        h(Met,{lbl:'Sparar/mån',val:kr(visibleJarMon),col:'var(--pink)'})
+      )
+    ),
+    h(Card,null,
+      h('div',{className:'section-title'},
+        h('span',null,'Fasta kostnader'),
+        h('span',{style:{color:'var(--purp)',fontFamily:'Georgia,serif',fontSize:16}},kr(fixed))
+      ),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1fr 110px 28px',gap:7,paddingBottom:6,borderBottom:'1px solid var(--bd)',marginBottom:6}},
+        ['Namn','Belopp',''].map((c,i)=>h('span',{key:i,style:{fontSize:9,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--tx3)'}},c))
+      ),
+      budget.expenses.filter(e=>e.type==='fixed').map(e=>h('div',{key:e.id,style:{display:'grid',gridTemplateColumns:'1fr 110px 28px',gap:7,marginBottom:7,alignItems:'center'}},
+        h(TxtInput,{value:e.name,onChange:v=>setExpField(e.id,'name',v),ph:'t.ex. Klarna, billån…',cls:'nopx'}),
+        h(NumInput,{value:e.amount,onChange:v=>setExpField(e.id,'amount',v)}),
+        h('button',{className:'rm',onClick:()=>removeExp(e.id)},'×')
+      )),
+      h('button',{className:'add-row',onClick:()=>addExp('fixed')},'+ Lägg till fast kostnad')
+    ),
+    h(Card,null,
+      h('div',{className:'section-title'},
+        h('span',null,'Nöje'),
+        h('span',{style:{color:'var(--amb)',fontFamily:'Georgia,serif',fontSize:16}},kr(fun))
+      ),
+      budget.expenses.filter(e=>e.type==='fun').map(e=>h('div',{key:e.id,style:{display:'grid',gridTemplateColumns:'1fr 110px 28px',gap:7,marginBottom:7,alignItems:'center'}},
+        h(TxtInput,{value:e.name,onChange:v=>setExpField(e.id,'name',v),ph:'t.ex. Gym, restaurang…',cls:'nopx'}),
+        h(NumInput,{value:e.amount,onChange:v=>setExpField(e.id,'amount',v)}),
+        h('button',{className:'rm',onClick:()=>removeExp(e.id)},'×')
+      )),
+      h('button',{className:'add-row',onClick:()=>addExp('fun')},'+ Lägg till nöje')
+    ),
+    h(Card,null,
+      h(Lbl,{t:'50/30/20-regeln'}),
+      h('div',{className:'rule-grid g3'},
+        [
+          {cls:'needs',lbl:'Fasta kostnader',p:needPct,rec:50,v:kr(fixed),over:needPct>50},
+          {cls:'wants',lbl:'Nöje',p:wantPct,rec:30,v:kr(fun),over:wantPct>30},
+          {cls:'saves',lbl:'Sparande',p:savePct,rec:20,v:kr(visibleJarMon),over:savePct<20}
+        ].map(({cls,lbl,p,rec,v,over})=>h('div',{key:cls,className:`rule-cell ${cls}`},
+          h('div',{className:'rule-lbl'},lbl),
+          h('div',{className:'rule-pct'},p+'%'),
+          h('div',{style:{fontSize:10,color:'var(--tx3)',marginBottom:4}},'Mål: '+(cls==='saves'?'min':'max')+' '+rec+'%'),
+          h('div',{style:{fontSize:11,fontWeight:500}}),
+          h('div',{style:{fontSize:10,marginTop:2,color:over?'var(--red)':'var(--green)'}},
+            cls==='saves'?(p<rec?`${rec-p}pp under mål`:`+${p-rec}pp över`):(over?`+${p-rec}pp över`:`${rec-p}pp under`)
+          )
+        ))
+      ),
+      h('div',{style:{height:6,borderRadius:3,overflow:'hidden',display:'flex',background:'var(--bg3)',margin:'.75rem 0 .5rem'}},
+        h('div',{style:{width:`${Math.min(needPct,100)}%`,height:'100%',background:'#7ab3f0'}}),
+        h('div',{style:{width:`${Math.min(wantPct,Math.max(0,100-needPct))}%`,height:'100%',background:'var(--amb)'}}),
+        h('div',{style:{width:`${Math.min(savePct,Math.max(0,100-needPct-wantPct))}%`,height:'100%',background:'var(--green)'}})
+      ),
+      h('div',{style:{fontSize:10,color:'var(--tx3)'}},'Fast ',needPct,'%  ·  Nöje ',wantPct,'%  ·  Sparande ',savePct,'%'),
+      issues.length ? h(Tip,{text:'Att se över: '+issues.join(', ')+'.',type:'w'}) : h(Tip,{text:'Din ekonomi matchar 50/30/20-regeln!',type:'ok'})
+    )
+  );
+}
+
+// ─── JARS TAB ────────────────────────────────────────────────────────────────
+function JarsTab({jars, jarRate, onAddJar, onUpdateJar, onDeleteJar, onRateChange, budget}) {
+  const visible = jars.filter(j=>!j.hidden);
+  const totalBal = visible.reduce((s,j)=>s+j.balance,0);
+  const totalMon = visible.reduce((s,j)=>s+j.monthly,0);
+
+  return h('div',null,
+    h(Card,null,
+      h('div',{className:'section-title'},
+        h('span',null,'Sparlådor'),
+        h('div',{style:{display:'flex',gap:6,alignItems:'center'}},
+          h('span',{style:{fontSize:11,color:'var(--tx3)'}},'Avkastning/år'),
+          h('input',{type:'text',inputMode:'decimal',value:jarRate,onChange:e=>onRateChange(parseFloat(e.target.value)||0),
+            style:{width:44,padding:'3px 6px',background:'var(--bg3)',border:'1px solid var(--bd)',borderRadius:6,fontSize:12,color:'var(--tx)',textAlign:'right'}}),
+          h('span',{style:{fontSize:11,color:'var(--tx3)'}},'%')
+        )
+      ),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1.3fr 0.85fr 0.85fr 0.85fr 50px 28px',gap:6,borderBottom:'1px solid var(--bd)',paddingBottom:6,marginBottom:6}},
+        ['Namn','Saldo','Per mån','Mål','Dold',''].map((l,i)=>h('span',{key:i,style:{fontSize:9,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--tx3)'}},l))
+      ),
+      jars.map(j=>h('div',{key:j.id,style:{display:'grid',gridTemplateColumns:'1.3fr 0.85fr 0.85fr 0.85fr 50px 28px',gap:6,marginBottom:8,alignItems:'center'}},
+        h(TxtInput,{value:j.name,onChange:v=>onUpdateJar(j.id,'name',v),ph:'Namn',cls:'nopx'}),
+        h(NumInput,{value:j.balance,onChange:v=>onUpdateJar(j.id,'balance',v),onBlurSave:()=>onUpdateJar(j.id,'_save',true)}),
+        h(NumInput,{value:j.monthly,onChange:v=>onUpdateJar(j.id,'monthly',v),onBlurSave:()=>onUpdateJar(j.id,'_save',true)}),
+        h(NumInput,{value:j.target,onChange:v=>onUpdateJar(j.id,'target',v),onBlurSave:()=>onUpdateJar(j.id,'_save',true)}),
+        h('button',{className:'toggle'+(j.hidden?' on':''),onClick:()=>onUpdateJar(j.id,'hidden',!j.hidden)}),
+        h('button',{className:'rm',onClick:()=>onDeleteJar(j.id)},'×')
+      )),
+      h('button',{className:'add-row',onClick:onAddJar},'+ Lägg till sparlåda'),
+      jars.some(j=>j.hidden) && h('div',{style:{fontSize:11,color:'var(--tx3)',marginTop:6}},'Dolda lådor (t.ex. pension) exkluderas från totalsumman.')
+    ),
+    h(Card,null,
+      h(Lbl,{t:'Totalt synligt sparande'}),
+      h('div',{className:'mets',style:{marginBottom:'1rem'}},
+        h(Met,{lbl:'Saldo nu',val:kr(totalBal),col:'var(--green)'}),
+        h(Met,{lbl:'Sätter in/mån',val:kr(totalMon),col:'var(--pink)'}),
+        h(Met,{lbl:'Om 1 år',val:kr(fvCalc(totalBal,totalMon,12,jarRate)),col:'var(--green)'})
+      ),
+      h('div',{className:'g4'},
+        [1,2,5,10].map(y=>h('div',{key:y,style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.7rem',textAlign:'center'}},
+          h('div',{style:{fontSize:9,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--tx3)',marginBottom:3}},'Om '+y+' år'),
+          h('div',{style:{fontSize:14,fontFamily:'Georgia,serif',color:'var(--green)'}},fmtS(fvCalc(totalBal,totalMon,y*12,jarRate)))
+        ))
+      )
+    ),
+    h('div',{className:'jar-grid'},
+      jars.map((j,i)=>{
+        const c=JC[i%JC.length];
+        const bal1y=fvCalc(j.balance,j.monthly,12,jarRate);
+        const prog=j.target>0?Math.min(100,Math.round(j.balance/j.target*100)):null;
+        const mth2g=j.target>j.balance&&j.monthly>0?Math.ceil((j.target-j.balance)/j.monthly):null;
+        return h('div',{key:j.id,className:'jar-card'+(j.hidden?' hidden-jar':''),style:{borderTopColor:c}},
+          h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:5}},
+            h('div',{style:{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},j.name||'Namnlös'),
+            j.hidden && h('span',{style:{fontSize:9,color:'var(--tx3)',marginLeft:4,flexShrink:0}},'dold')
+          ),
+          h('div',{style:{fontSize:19,fontFamily:'Georgia,serif',color:c,marginBottom:2}},fmtS(j.balance)),
+          h('div',{style:{fontSize:10,color:'var(--tx3)',marginBottom:7}},'+'+fmtS(j.monthly)+'/mån'),
+          prog!==null && h('div',null,
+            h('div',{className:'prog-t',style:{marginBottom:3}},h('div',{className:'prog-f',style:{width:prog+'%',background:c}})),
+            h('div',{style:{fontSize:9,color:'var(--tx3)',marginBottom:4}},prog+'% av '+fmtS(j.target))
+          ),
+          h('div',{style:{fontSize:10,color:c,borderTop:'1px solid var(--bd)',paddingTop:5,marginTop:4}},'Om 1 år: '+fmtS(bal1y)),
+          mth2g && h('div',{style:{fontSize:9,color:'var(--tx3)',marginTop:2}},'Mål om ~'+mth2g+' mån')
+        );
+      })
+    )
+  );
+}
+
+// ─── SHARED TAB ───────────────────────────────────────────────────────────────
+function SharedTab({userId, profile, sharedGoals, onReload}) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm]         = useState({name:'',target:'',email:'',myMonthly:''});
+  const [err, setErr]           = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [editId, setEditId]     = useState(null);
+  const [editC, setEditC]       = useState({contrib:0,monthly:0});
+  const f = k => v => setForm(p=>({...p,[k]:v}));
+
+  const createGoal = async () => {
+    setErr('');
+    if (!form.name.trim()) return setErr('Ange ett målnamn.');
+    if (!+form.target)     return setErr('Ange ett målbelopp.');
+    if (!form.email.includes('@')) return setErr('Ange en giltig e-postadress.');
+    if (form.email.toLowerCase()===profile.email.toLowerCase()) return setErr('Du kan inte bjuda in dig själv.');
+    setSaving(true);
+    const {data:found,error:fe} = await dbFindEmail(form.email);
+    if (fe||!found||found.length===0) { setErr('Ingen användare med den e-postadressen hittades.'); setSaving(false); return; }
+    const partnerId = found[0].id; const partnerName = found[0].name;
+    const {data:goal,error:ge} = await db.from('shared_goals').insert({name:form.name.trim(),target:+form.target,created_by:userId}).select().single();
+    if (ge) { setErr(ge.message); setSaving(false); return; }
+    await db.from('shared_goal_members').insert([
+      {goal_id:goal.id,user_id:userId,status:'accepted',contribution:0,monthly_contrib:+form.myMonthly||0},
+      {goal_id:goal.id,user_id:partnerId,status:'pending',contribution:0,monthly_contrib:0}
+    ]);
+    await db.from('notifications').insert({user_id:partnerId,type:'goal_invite',data:{goal_id:goal.id,goal_name:goal.name,target:goal.target,inviter_name:profile.name||profile.email}});
+    setShowForm(false); setForm({name:'',target:'',email:'',myMonthly:''}); setSaving(false);
+    onReload();
+  };
+
+  const saveContrib = async (goalId) => {
+    await db.from('shared_goal_members').update({contribution:editC.contrib,monthly_contrib:editC.monthly}).eq('goal_id',goalId).eq('user_id',userId);
+    setEditId(null); onReload();
+  };
+
+  const leaveGoal = async (goalId) => {
+    if (!confirm('Lämna det gemensamma målet?')) return;
+    await db.from('shared_goal_members').update({status:'declined'}).eq('goal_id',goalId).eq('user_id',userId);
+    onReload();
+  };
+
+  return h('div',null,
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.75rem'}},
+      h('div',null,
+        h(Lbl,{t:'Gemensamt sparande'}),
+        h('div',{style:{fontSize:11,color:'var(--tx3)'}},'Delade sparmål — bjud in via e-post')
+      ),
+      h('div',{style:{display:'flex',gap:7}},
+        h('button',{className:'btn-ghost',onClick:onReload},'Uppdatera'),
+        h('button',{className:'btn-primary',style:{fontSize:12,padding:'7px 14px'},onClick:()=>setShowForm(!showForm)},showForm?'Avbryt':'+ Nytt mål')
+      )
+    ),
+    showForm && h(Card,{accent:true},
+      h(Lbl,{t:'Skapa gemensamt mål'}),
+      h('div',{className:'g2',style:{marginBottom:10}},
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Målnamn'),h(TxtInput,{value:form.name,onChange:f('name'),ph:'t.ex. Gemensam semester',cls:'nopx'})),
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Målbelopp (kr)'),h(NumInput,{value:+form.target||0,onChange:v=>setForm(p=>({...p,target:v}))}))
+      ),
+      h('div',{className:'g2',style:{marginBottom:10}},
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Partners e-postadress'),h(TxtInput,{value:form.email,onChange:f('email'),ph:'namn@hotmail.com',type:'email',cls:'nopx'})),
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Mitt bidrag/mån (kr)'),h(NumInput,{value:+form.myMonthly||0,onChange:v=>setForm(p=>({...p,myMonthly:v}))}))
+      ),
+      err && h(Tip,{text:err,type:'err'}),
+      h('button',{className:'btn-primary',style:{marginTop:4},onClick:createGoal,disabled:saving},saving?'Skapar…':'Skapa mål')
+    ),
+    sharedGoals.length===0 && !showForm && h('div',{style:{textAlign:'center',padding:'2.5rem 1rem',color:'var(--tx3)'}},
+      h('div',{style:{fontSize:13,marginBottom:6}},'Inga gemensamma mål ännu'),
+      h('div',{style:{fontSize:11}},'Skapa ett mål och bjud in en annan användare via e-post.')
+    ),
+    sharedGoals.map((goal,gi)=>{
+      const ac=JC[gi%JC.length];
+      const myMem=goal.myMembership||{};
+      const myC=myMem.contribution||0, myM=myMem.monthly_contrib||0;
+      const others=(goal.members||[]).filter(m=>m.user_id!==userId);
+      const totalBal=( goal.members||[] ).reduce((s,m)=>s+(m.contribution||0),0);
+      const totalMon=( goal.members||[] ).reduce((s,m)=>s+(m.monthly_contrib||0),0);
+      const progPct=goal.target>0?Math.min(100,Math.round(totalBal/goal.target*100)):0;
+      const remaining=Math.max(0,(goal.target||0)-totalBal);
+      const mthsLeft=totalMon>0?Math.ceil(remaining/totalMon):null;
+      const isEd=editId===goal.id;
+      return h('div',{key:goal.id,style:{background:'var(--bg2)',border:'1px solid var(--bd)',borderRadius:'var(--r2)',marginBottom:'.85rem',overflow:'hidden'}},
+        h('div',{style:{borderTop:'3px solid '+ac,padding:'1rem 1.1rem'}},
+          h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'.75rem'}},
+            h('div',null,
+              h('div',{style:{fontSize:14,fontWeight:600,marginBottom:2}},goal.name),
+              h('div',{style:{fontSize:11,color:'var(--tx3)'}},'Delat av '+(goal.createdBy||'')+(others.length?' · Med '+others.map(m=>m.profiles?.name||m.profiles?.email||'Partner').join(', '):'')),
+            ),
+            h('div',{style:{textAlign:'right'}},
+              h('div',{style:{fontSize:18,fontFamily:'Georgia,serif',color:ac}},fmtS(totalBal)),
+              h('div',{style:{fontSize:10,color:'var(--tx3)'}},'av '+kr(goal.target||0))
+            )
+          ),
+          h('div',{className:'prog-t',style:{marginBottom:5}},h('div',{className:'prog-f',style:{width:progPct+'%',background:ac}})),
+          h('div',{style:{fontSize:10,color:'var(--tx3)',marginBottom:'.75rem'}},
+            progPct+'% klart'+(mthsLeft?' · ~'+mthsLeft+' mån kvar':remaining<=0?' · Mål uppnått!':'')
+          ),
+          h('div',{className:'g2',style:{marginBottom:'.75rem'}},
+            h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.75rem',borderLeft:'2px solid '+ac}},
+              h('div',{style:{fontSize:9,textTransform:'uppercase',letterSpacing:'.1em',color:ac,marginBottom:3}},'Ditt bidrag'),
+              h('div',{style:{fontSize:15,fontFamily:'Georgia,serif',color:ac,marginBottom:1}},kr(myC)),
+              h('div',{style:{fontSize:10,color:'var(--tx3)'}},'+'+kr(myM)+'/mån')
+            ),
+            h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.75rem'}},
+              h('div',{style:{fontSize:9,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--tx3)',marginBottom:3}},'Partners bidrag'),
+              others.length ? h('div',null,
+                others.map(m=>h('div',{key:m.id},
+                  h('div',{style:{fontSize:9,color:'var(--tx3)'}},m.profiles?.name||'Partner'+(m.status==='pending'?' (väntar)':'')),
+                  h('div',{style:{fontSize:15,fontFamily:'Georgia,serif',marginBottom:1}},kr(m.contribution||0)),
+                  h('div',{style:{fontSize:10,color:'var(--tx3)'}},'+'+kr(m.monthly_contrib||0)+'/mån')
+                ))
+              ) : h('div',{style:{fontSize:12,color:'var(--tx3)'}},'Inbjudan skickad…')
+            )
+          ),
+          isEd
+            ? h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.85rem'}},
+                h('div',{style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--tx3)',marginBottom:8}},'Uppdatera mitt bidrag'),
+                h('div',{className:'g2',style:{marginBottom:10}},
+                  h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Mitt saldo hittills'),h(NumInput,{value:editC.contrib,onChange:v=>setEditC(p=>({...p,contrib:v}))})),
+                  h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Mitt bidrag/mån'),h(NumInput,{value:editC.monthly,onChange:v=>setEditC(p=>({...p,monthly:v}))}))
+                ),
+                h('div',{style:{display:'flex',gap:7}},
+                  h('button',{className:'btn-primary',style:{fontSize:12,padding:'7px 16px'},onClick:()=>saveContrib(goal.id)},'Spara'),
+                  h('button',{className:'btn-secondary',style:{fontSize:12,padding:'7px 12px'},onClick:()=>setEditId(null)},'Avbryt')
+                )
+              )
+            : h('div',{style:{display:'flex',gap:7}},
+                h('button',{className:'btn-secondary',style:{fontSize:11,padding:'6px 12px'},onClick:()=>{setEditId(goal.id);setEditC({contrib:myC,monthly:myM});}},'Uppdatera mitt bidrag'),
+                h('button',{className:'btn-ghost',style:{fontSize:11,color:'var(--red)'},onClick:()=>leaveGoal(goal.id)},'Lämna')
+              )
+        )
+      );
+    })
+  );
+}
+
+// ─── PROGNOS TAB ──────────────────────────────────────────────────────────────
+function PrognosTab({budget, jars}) {
+  const [projSave, setProjSave]   = useState(5000);
+  const [projYears, setProjYears] = useState(10);
+  const [projRate, setProjRate]   = useState(4);
+  const [goalAmt, setGoalAmt]     = useState(100000);
+  const [goalMths, setGoalMths]   = useState(36);
+  const [goalRate, setGoalRate]   = useState(4);
+
+  const existing = budget.existing||0;
+  const projData = [];
+  for (let y=0;y<=projYears;y++) {
+    const m=y*12,mr=projRate/100/12;
+    const ni=existing+projSave*m;
+    const wi=mr===0?ni:existing*Math.pow(1+mr,m)+projSave*(Math.pow(1+mr,m)-1)/mr;
+    projData.push({yr:y===0?'Nu':String(new Date().getFullYear()+y),wi:Math.round(wi),ni:Math.round(ni)});
+  }
+  const fin=projData[projData.length-1];
+  const mr2=goalRate/100/12;
+  let gReq=mr2===0?(goalAmt-existing)/goalMths:((goalAmt-existing*Math.pow(1+mr2,goalMths))*mr2/(Math.pow(1+mr2,goalMths)-1));
+  gReq=Math.max(0,gReq);
+  const gPaid=gReq*goalMths, gInt=goalAmt-existing-gPaid;
+  const visJarMon=jars.filter(j=>!j.hidden).reduce((s,j)=>s+j.monthly,0);
+
+  return h('div',null,
+    h(Card,null,
+      h(Lbl,{t:'Framtidsprognos'}),
+      [['Sparar per månad',projSave,setProjSave,0,25000,100,v=>kr(v)],
+       ['Tidshorisont',projYears,setProjYears,1,40,1,v=>v+' år'],
+       ['Avkastning per år',projRate,setProjRate,0,12,.5,v=>(+v).toFixed(1).replace('.',',')+' %']
+      ].map(([lbl,val,set,mn,mx,st,fmt])=>h('div',{key:lbl,style:{display:'flex',alignItems:'center',gap:10,marginBottom:'.75rem'}},
+        h('span',{style:{fontSize:11,color:'var(--tx2)',minWidth:148}},lbl),
+        h('input',{type:'range',min:mn,max:mx,step:st,value:val,onChange:e=>set(+e.target.value),style:{flex:1,accentColor:'var(--green)'}}),
+        h('span',{style:{fontSize:12,minWidth:72,textAlign:'right',color:'var(--tx)'}} ,fmt(val))
+      )),
+      h('div',{style:{display:'flex',gap:14,marginBottom:6}},
+        [['Med avkastning','#98c474'],['Utan avkastning','#4e4d46']].map(([l,c])=>
+          h('div',{key:l,style:{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'var(--tx3)'}},
+            h('div',{style:{width:18,height:2,background:c}}),l)
+        )
+      ),
+      h(ProjChart,{data:projData,years:projYears}),
+      h(Tip,{text:`Om ${projYears} år: ${kr(fin?.wi||0)} — varav ${kr(Math.max(0,(fin?.wi||0)-(fin?.ni||0)))} i avkastning.`,type:'ok'})
+    ),
+    h(Card,null,
+      h(Lbl,{t:'Sparmål — vad krävs?'}),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:'1rem'},className:'g3-resp'},
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Målbelopp (kr)'),h(NumInput,{value:goalAmt,onChange:setGoalAmt})),
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Antal månader'),h(NumInput,{value:goalMths,onChange:setGoalMths,prefix:'mån'})),
+        h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Avkastning/år (%)'),h(NumInput,{value:goalRate,onChange:setGoalRate,prefix:'%'}))
+      ),
+      h('div',{className:'mets'},
+        h(Met,{lbl:'Krävs per månad',val:kr(gReq),col:gReq>visJarMon?'var(--red)':'var(--green)'}),
+        h(Met,{lbl:'Totalt inbetalt',val:kr(gPaid)}),
+        h(Met,{lbl:'Avkastning tjänar du',val:kr(Math.max(0,gInt)),col:'var(--green)'})
+      ),
+      gReq>visJarMon
+        ? h(Tip,{text:`Du behöver ${kr(gReq-visJarMon)} mer per månad än du sparar idag.`,type:'w'})
+        : h(Tip,{text:`Du klarar det! Ditt nuvarande sparande räcker — du har ${kr(visJarMon-gReq)} per månad kvar.`,type:'ok'})
+    )
+  );
+}
+
+// ─── NOTIFICATION PANEL ───────────────────────────────────────────────────────
+function NotifPanel({notifs, onAccept, onDecline, onClose}) {
+  return h('div',{className:'notif-panel card'},
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 0 .75rem',borderBottom:'1px solid var(--bd)',marginBottom:'.75rem'}},
+      h('div',{style:{fontSize:12,fontWeight:600,color:'var(--tx)'}},'Notiser'),
+      h('button',{className:'btn-ghost',style:{padding:'3px 8px'},onClick:onClose},'Stäng')
+    ),
+    notifs.length===0 && h('div',{style:{fontSize:12,color:'var(--tx3)',padding:'.5rem 0'}},'Inga nya notiser.'),
+    notifs.map(n=>{
+      const d=n.data||{};
+      return h('div',{key:n.id,className:'notif-item'},
+        h('div',null,
+          h('div',{style:{fontSize:12,fontWeight:500,color:'var(--tx)'}},'Inbjudan: '+d.goal_name),
+          h('div',{style:{fontSize:11,color:'var(--tx3)',marginTop:2}},
+            (d.inviter_name||'Någon')+' vill spara '+kr(d.target||0)+' tillsammans med dig.'
+          )
+        ),
+        n.type==='goal_invite' && h('div',{style:{display:'flex',gap:7}},
+          h('button',{className:'btn-primary',style:{fontSize:12,padding:'6px 14px'},onClick:()=>onAccept(n)},'Acceptera'),
+          h('button',{className:'btn-danger',style:{fontSize:12,padding:'6px 12px'},onClick:()=>onDecline(n)},'Neka')
+        )
+      );
+    })
+  );
+}
+
+// ─── CREATE MONTH SCREEN ──────────────────────────────────────────────────────
+function CreateMonthScreen({month, prevBudget, onCreate}) {
+  return h('div',{style:{minHeight:'60vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'2rem'}},
+    h('div',{style:{width:'100%',maxWidth:380,background:'var(--bg2)',border:'1px solid var(--bd)',borderRadius:'var(--r2)',padding:'1.5rem'}},
+      h('div',{style:{fontSize:16,fontFamily:'Georgia,serif',color:'var(--pink)',marginBottom:6}},'Ny budget för '+fmtMK(month)),
+      h('div',{style:{fontSize:12,color:'var(--tx2)',marginBottom:'1.25rem',lineHeight:1.6}},
+        prevBudget?'Kopiera utgiftskategorier från förra månaden, eller börja med en tom mall?':'Välj startpunkt:'),
+      h('div',{style:{display:'flex',gap:8}},
+        prevBudget && h('button',{className:'btn-primary btn-full',onClick:()=>onCreate(true)},'Kopiera förra månaden'),
+        h('button',{className:'btn-secondary btn-full',onClick:()=>onCreate(false)},prevBudget?'Tom budget':'Starta med mall')
+      )
+    )
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  const [session,  setSession]   = useState(null);
+  const [loading,  setLoading]   = useState(true);
+  const [isReset,  setIsReset]   = useState(false);
+  const [profile,  setProfile]   = useState(null);
+  const [budget,   setBudget]    = useState(defBudget());
+  const [jars,     setJars]      = useState([]);
+  const [jarRate,  setJarRate]   = useState(4);
+  const [months,   setMonths]    = useState([todayMK()]);
+  const [month,    setMonth]     = useState(todayMK());
+  const [tab,      setTab]       = useState('budget');
+  const [needCreate,setNeedCreate]=useState(false);
+  const [prevBud,  setPrevBud]   = useState(null);
+  const [sharedGoals,setSharedGoals]=useState([]);
+  const [notifs,   setNotifs]    = useState([]);
+  const [showNotifs,setShowNotifs]=useState(false);
+  const [saving,   setSaving]    = useState(false);
+  const budgetTimer = useRef(null);
+
+  // ── AUTH SETUP ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const { data:{subscription} } = db.auth.onAuthStateChange(async (event, sess) => {
+      if (event==='PASSWORD_RECOVERY') setIsReset(true);
+      setSession(sess);
+      setLoading(false);
+      if (sess) loadAll(sess.user.id);
+    });
+    db.auth.getSession().then(({data:{session:sess}}) => {
+      setSession(sess); setLoading(false);
+      if (sess) loadAll(sess.user.id);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // ── DATA LOADING ────────────────────────────────────────────────────────────
+  const loadAll = async (uid) => {
+    const [{data:prof},{data:mths},{data:js}] = await Promise.all([
+      dbProfile(uid), dbBudgMths(uid), dbJars(uid)
+    ]);
+    if (prof) { setProfile(prof); if(prof.jar_rate!=null) setJarRate(prof.jar_rate); }
+    if (mths?.length) { const mk=mths.map(m=>m.month_key).sort(); setMonths(mk); }
+    if (js) setJars(js);
+    await loadBudget(uid, todayMK());
+    await loadSharedGoals(uid);
+    await loadNotifs(uid);
+  };
+
+  const loadBudget = async (uid, mk) => {
+    const {data} = await dbBudget(uid, mk);
+    if (data) {
+      setBudget({income:data.income||35000, existing:data.existing_savings||0, expenses:data.expenses||defBudget().expenses});
+      setNeedCreate(false);
+    } else {
+      const {data:prev} = await dbBudget(uid, prevMK(mk));
+      setPrevBud(prev ? {income:prev.income,existing:prev.existing_savings,expenses:prev.expenses} : null);
+      setNeedCreate(true); setBudget(defBudget());
+    }
+  };
+
+  const loadSharedGoals = async (uid) => {
+    const {data:mems} = await dbSGoals(uid);
+    if (!mems?.length) { setSharedGoals([]); return; }
+    const goalIds = mems.map(m=>m.goal_id);
+    const {data:allMems} = await dbSMembers(goalIds);
+    const goals = mems.filter(m=>m.shared_goals).map(m=>({
+      ...m.shared_goals, myMembership:m,
+      members:(allMems||[]).filter(am=>am.goal_id===m.goal_id),
+      createdBy:m.shared_goals?.created_by
+    }));
+    setSharedGoals(goals);
+  };
+
+  const loadNotifs = async (uid) => {
+    const {data} = await dbNotifs(uid);
+    setNotifs(data||[]);
+  };
+
+  // ── SAVE BUDGET (debounced) ──────────────────────────────────────────────────
+  const saveBudgetDebounced = useCallback((b) => {
+    clearTimeout(budgetTimer.current);
+    budgetTimer.current = setTimeout(async () => {
+      if (!session) return;
+      setSaving(true);
+      await dbSaveBudg({user_id:session.user.id, month_key:month, income:b.income, existing_savings:b.existing, expenses:b.expenses, updated_at:new Date().toISOString()});
+      setSaving(false);
+    }, 800);
+  }, [session, month]);
+
+  const handleBudgetChange = (newB) => { setBudget(newB); saveBudgetDebounced(newB); };
+
+  // ── CREATE MONTH ────────────────────────────────────────────────────────────
+  const createMonth = async (copy) => {
+    const b = copy && prevBud ? {...prevBud} : defBudget();
+    setBudget(b); setNeedCreate(false);
+    await dbSaveBudg({user_id:session.user.id, month_key:month, income:b.income, existing_savings:b.existing, expenses:b.expenses});
+    const nm=[...new Set([...months,month])].sort();
+    setMonths(nm);
+  };
+
+  // ── MONTH NAVIGATION ─────────────────────────────────────────────────────────
+  const goMonth = async (mk) => {
+    setMonth(mk);
+    const nm=[...new Set([...months,mk])].sort(); setMonths(nm);
+    await loadBudget(session.user.id, mk);
+  };
+
+  // ── JAR OPERATIONS ───────────────────────────────────────────────────────────
+  const addJar = async () => {
+    const {data:nj} = await dbAddJar({user_id:session.user.id, name:'', balance:0, monthly:0, target:0, hidden:false, sort_order:jars.length});
+    if (nj) setJars(p=>[...p,nj]);
+  };
+  const updateJar = async (id, field, val) => {
+    if (field==='_save') { const j=jars.find(x=>x.id===id); if(j) await dbUpdJar(id,{name:j.name,balance:j.balance,monthly:j.monthly,target:j.target,hidden:j.hidden}); return; }
+    const updated = jars.map(j=>j.id===id?{...j,[field]:val}:j);
+    setJars(updated);
+    if (field==='hidden' || field==='name') {
+      const j=updated.find(x=>x.id===id);
+      await dbUpdJar(id,{[field]:val});
+    }
+  };
+  const deleteJar = async (id) => { await dbDelJar(id); setJars(p=>p.filter(j=>j.id!==id)); };
+  const saveJarRate = async (r) => {
+    setJarRate(r);
+    if (session) await db.from('profiles').update({jar_rate:r}).eq('id',session.user.id);
+  };
+
+  // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+  const acceptInvite = async (notif) => {
+    const d=notif.data||{};
+    await db.from('shared_goal_members').update({status:'accepted'}).eq('goal_id',d.goal_id).eq('user_id',session.user.id);
+    await dbMarkRead(notif.id);
+    setNotifs(p=>p.filter(n=>n.id!==notif.id));
+    await loadSharedGoals(session.user.id);
+  };
+  const declineInvite = async (notif) => {
+    const d=notif.data||{};
+    await db.from('shared_goal_members').update({status:'declined'}).eq('goal_id',d.goal_id).eq('user_id',session.user.id);
+    await dbMarkRead(notif.id);
+    setNotifs(p=>p.filter(n=>n.id!==notif.id));
+  };
+
+  const logout = async () => { await db.auth.signOut(); setSession(null); setProfile(null); setJars([]); setBudget(defBudget()); setSharedGoals([]); setNotifs([]); };
+
+  // ── RENDER ────────────────────────────────────────────────────────────────────
+  if (loading) return h('div',{className:'loading-wrap'},h(Spin));
+  if (!session || isReset) return h(AuthPage);
+
+  const uid = session.user.id;
+  const allMonths=[...new Set([...months,month])].sort().reverse();
+  const TABS=[['budget','Budget'],['jars','Sparlådor'],['gemensamt','Gemensamt'],['prognos','Prognos']];
+  const visibleJarMon = jars.filter(j=>!j.hidden).reduce((s,j)=>s+j.monthly,0);
+  const totalJarMon   = jars.reduce((s,j)=>s+j.monthly,0);
+
+  if (needCreate) return h('div',{className:'app'},
+    h(CreateMonthScreen,{month,prevBudget:prevBud,onCreate:createMonth})
+  );
+
+  return h('div',{className:'app'},
+    h('div',{className:'hdr'},
+      h('div',null,
+        h('div',{className:'hdr-brand'},'Min Ekonomi'),
+        h('div',{className:'hdr-user'},profile?.name||session.user.email)
+      ),
+      h('div',{className:'month-nav'},
+        h('button',{onClick:()=>goMonth(prevMK(month))},'‹'),
+        h('select',{value:month,onChange:e=>goMonth(e.target.value)},
+          allMonths.map(mk=>h('option',{key:mk,value:mk},fmtMK(mk)))),
+        h('button',{onClick:()=>goMonth(nextMK(month))},'›')
+      ),
+      h('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+        saving && h('div',{style:{width:14,height:14,border:'2px solid var(--bd)',borderTopColor:'var(--pink)',borderRadius:'50%',animation:'rot .7s linear infinite'}}),
+        h('button',{style:{position:'relative',background:'none',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:'6px 10px',color:'var(--tx2)',fontSize:12},onClick:()=>setShowNotifs(!showNotifs)},
+          '🔔',notifs.length>0&&h('span',{className:'badge',style:{position:'absolute',top:-6,right:-6}},notifs.length)
+        ),
+        h('button',{className:'btn-ghost',onClick:logout},'Logga ut')
+      )
+    ),
+    h('div',{className:'tabs'},TABS.map(([k,l])=>h('button',{key:k,onClick:()=>{setTab(k);setShowNotifs(false);},className:'tab-btn'+(tab===k?' on':'')},l))),
+    h('div',{className:'content'},
+      showNotifs && h(NotifPanel,{notifs,onAccept:acceptInvite,onDecline:declineInvite,onClose:()=>setShowNotifs(false)}),
+      !showNotifs && tab==='budget'   && h(BudgetTab,{budget,onChange:handleBudgetChange,totalJarMon,visibleJarMon}),
+      !showNotifs && tab==='jars'     && h(JarsTab,{jars,jarRate,onAddJar:addJar,onUpdateJar:updateJar,onDeleteJar:deleteJar,onRateChange:saveJarRate,budget}),
+      !showNotifs && tab==='gemensamt'&& h(SharedTab,{userId:uid,profile:profile||{},sharedGoals,onReload:()=>loadSharedGoals(uid)}),
+      !showNotifs && tab==='prognos'  && h(PrognosTab,{budget,jars})
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  SUPABASE SQL SETUP                                                          ║
+║  Kör följande SQL i din Supabase SQL-editor                                  ║
+║  (supabase.com → ditt projekt → SQL Editor → New query)                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+-- ① PROFILES
+create table if not exists public.profiles (
+  id uuid references auth.users on delete cascade primary key,
+  name text, email text, jar_rate numeric default 4,
+  created_at timestamptz default now()
+);
+alter table profiles enable row level security;
+create policy "Own profile" on profiles for all using (auth.uid() = id);
+create policy "Read profiles" on profiles for select to authenticated using (true);
+
+-- ② BUDGETS
+create table if not exists public.budgets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade not null,
+  month_key text not null,
+  income numeric default 35000,
+  existing_savings numeric default 0,
+  expenses jsonb default '[]'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(user_id, month_key)
+);
+alter table budgets enable row level security;
+create policy "Own budgets" on budgets for all using (auth.uid() = user_id);
+
+-- ③ JARS
+create table if not exists public.jars (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade not null,
+  name text default '',
+  balance numeric default 0,
+  monthly numeric default 0,
+  target numeric default 0,
+  hidden boolean default false,
+  sort_order int default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table jars enable row level security;
+create policy "Own jars" on jars for all using (auth.uid() = user_id);
+
+-- ④ SHARED GOALS
+create table if not exists public.shared_goals (
+  id uuid primary key default gen_random_uuid(),
+  name text not null, target numeric not null,
+  created_by uuid references profiles(id),
+  created_at timestamptz default now()
+);
+alter table shared_goals enable row level security;
+create policy "Members see goals" on shared_goals for select using (
+  exists (select 1 from shared_goal_members where goal_id=shared_goals.id and user_id=auth.uid())
+);
+create policy "Create goals" on shared_goals for insert with check (auth.uid()=created_by);
+
+-- ⑤ SHARED GOAL MEMBERS
+create table if not exists public.shared_goal_members (
+  id uuid primary key default gen_random_uuid(),
+  goal_id uuid references shared_goals(id) on delete cascade,
+  user_id uuid references profiles(id) on delete cascade,
+  status text default 'pending',
+  contribution numeric default 0,
+  monthly_contrib numeric default 0,
+  created_at timestamptz default now(),
+  unique(goal_id, user_id)
+);
+alter table shared_goal_members enable row level security;
+create policy "Members see memberships" on shared_goal_members for select using (
+  user_id=auth.uid() or
+  exists (select 1 from shared_goal_members m2 where m2.goal_id=goal_id and m2.user_id=auth.uid())
+);
+create policy "Anyone inserts" on shared_goal_members for insert with check (true);
+create policy "Own membership" on shared_goal_members for update using (user_id=auth.uid());
+
+-- ⑥ NOTIFICATIONS
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade not null,
+  type text, data jsonb default '{}'::jsonb,
+  read boolean default false,
+  created_at timestamptz default now()
+);
+alter table notifications enable row level security;
+create policy "Own notifications" on notifications for all using (auth.uid()=user_id);
+-- Allow inserting notifications for other users (for invites):
+create policy "Anyone inserts notifications" on notifications for insert with check (true);
+
+-- ⑦ AUTO-CREATE PROFILE ON SIGNUP
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.profiles (id, email, name)
+  values (new.id, new.email, new.raw_user_meta_data->>'name')
+  on conflict (id) do nothing;
+  return new;
+end; $$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- ⑧ FIND USER BY EMAIL (for sharing)
+create or replace function public.find_user_by_email(p_email text)
+returns table(id uuid, name text) language sql security definer as $$
+  select id, name from public.profiles
+  where lower(email) = lower(p_email) limit 1;
+$$;
+
+-- ⑨ In Supabase Dashboard → Authentication → URL Configuration:
+--    Set "Site URL" to where your app is hosted (e.g. https://your-app.netlify.app)
+--    Add your local URL to "Redirect URLs" if testing locally.
+-->
+</body>
+</html>
