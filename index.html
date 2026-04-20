@@ -118,15 +118,18 @@ button:active { transform: scale(.97); }
 
 /* ── 50/30/20 ────────────────────────────────────────────────────────────── */
 .rule-grid { border-radius: var(--r); overflow: hidden; border: 1px solid var(--bd); margin-bottom: .85rem; }
-.rule-cell { padding: 1rem; }
-.rule-cell.needs { background: #1a2535; }
-.rule-cell.wants { background: #2d1e10; }
-.rule-cell.saves { background: var(--gbg); }
-.rule-pct { font-size: 26px; font-family: Georgia, serif; letter-spacing: -.02em; margin-bottom: 3px; }
-.rule-cell.needs .rule-pct, .rule-cell.needs .rule-lbl { color: #7ab3f0; }
-.rule-cell.wants .rule-pct, .rule-cell.wants .rule-lbl { color: var(--amb); }
-.rule-cell.saves .rule-pct, .rule-cell.saves .rule-lbl { color: var(--green); }
-.rule-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .12em; font-weight: 600; margin-bottom: 8px; }
+.rule-cell { padding: 1.1rem; }
+.rule-cell.needs { background: #1e3f70; border-bottom: 3px solid #5ca3ff; }
+.rule-cell.wants { background: #4a2c00; border-bottom: 3px solid #f0b429; }
+.rule-cell.saves { background: #1c4020; border-bottom: 3px solid #7ecb52; }
+.rule-pct { font-size: 28px; font-family: Georgia, serif; letter-spacing: -.02em; margin-bottom: 3px; font-weight: 700; }
+.rule-cell.needs .rule-pct, .rule-cell.needs .rule-lbl { color: #90c8ff; }
+.rule-cell.wants .rule-pct, .rule-cell.wants .rule-lbl { color: #f5c842; }
+.rule-cell.saves .rule-pct, .rule-cell.saves .rule-lbl { color: #a0e070; }
+.rule-cell.needs .rule-pct { text-shadow: 0 0 24px rgba(90,160,255,.35); }
+.rule-cell.wants .rule-pct { text-shadow: 0 0 24px rgba(240,180,40,.35); }
+.rule-cell.saves .rule-pct { text-shadow: 0 0 24px rgba(120,220,80,.35); }
+.rule-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; margin-bottom: 8px; }
 
 /* ── PROGRESS ────────────────────────────────────────────────────────────── */
 .prog-t { height: 7px; border-radius: 4px; background: var(--bg3); overflow: hidden; }
@@ -155,6 +158,8 @@ button:active { transform: scale(.97); }
 .content { padding: 0 1.25rem; }
 
 /* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 680px) { .dash-grid { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .hdr { padding: .75rem 1rem; }
   .content { padding: 0 .85rem; }
@@ -236,6 +241,7 @@ const q = {
   findEmail:  email    => db.rpc('find_user_by_email', {p_email: email.trim().toLowerCase()}),
   sGoals:     uid      => db.from('shared_goal_members').select('*, shared_goals(*)').eq('user_id',uid).neq('status','declined'),
   sMembers:   ids      => db.from('shared_goal_members').select('*, profiles(name,email)').in('goal_id',ids),
+  allBudgets: uid      => db.from('budgets').select('*').eq('user_id',uid).order('month_key'),
 };
 
 // ─── PRIMITIVE COMPONENTS ────────────────────────────────────────────────────
@@ -245,10 +251,13 @@ function NumInput({ value, onChange, prefix='kr', onBlurSave }) {
   const [disp, setDisp] = useState(num===0?'':String(num));
   const focused = useRef(false);
   useEffect(() => { if (!focused.current) setDisp(num===0?'':String(num)); }, [num]);
+  // Dynamic left-padding so prefix never overlaps the number
+  const pl = prefix ? (prefix.length <= 1 ? 22 : prefix.length === 2 ? 28 : prefix.length === 3 ? 36 : 44) : 10;
   return h('div',{className:'iw'},
     prefix && h('span',{className:'px'},prefix),
     h('input',{
       type:'text', inputMode:'decimal', value:disp,
+      style:{paddingLeft: pl+'px'},
       onChange: e => { setDisp(e.target.value); onChange(parseFloat(e.target.value)||0); },
       onFocus:  e => { focused.current=true; if(disp==='0'||disp==='') { setDisp(''); e.target.select(); } },
       onBlur:   () => { focused.current=false; if(!disp||disp==='') setDisp(''); if(onBlurSave) onBlurSave(); }
@@ -644,7 +653,7 @@ function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
       setSaving(false); return;
     }
     const partnerId = foundArr[0].id;
-    const {data:goal, error:ge} = await db.from('shared_goals').insert({name:form.name.trim(),target:form.target,created_by:userId}).select().single();
+    const {data:goal, error:ge} = await db.from('shared_goals').insert({name:form.name.trim(),target:Number(form.target)}).select().single();
     if (ge) { setErr('Kunde inte skapa mål: '+ge.message); setSaving(false); return; }
     const {error:me} = await db.from('shared_goal_members').insert([
       {goal_id:goal.id,user_id:userId,  status:'accepted',contribution:0,monthly_contrib:form.myMonthly||0},
@@ -823,8 +832,8 @@ function PrognosTab({budget, jars}) {
       h('span',{className:'lbl'},'Vad krävs för att nå ett sparmål?'),
       h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:'1rem'},className:'g3'},
         h('div',null, h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:6}},'Målbelopp (kr)'), h(NumInput,{value:goalAmt,onChange:setGoalAmt})),
-        h('div',null, h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:6}},'Antal månader'), h(NumInput,{value:goalMths,onChange:v=>setGoalMths(Math.max(1,v)),prefix:'mån'})),
-        h('div',null, h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:6}},'Avkastning/år'), h(NumInput,{value:goalRate,onChange:v=>setGoalRate(Math.max(0,v)),prefix:'%'}))
+        h('div',null, h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:6}},'Antal månader'), h(NumInput,{value:goalMths,onChange:v=>setGoalMths(Math.min(600,Math.max(1,v))),prefix:'mån'})),
+        h('div',null, h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:6}},'Avkastning/år'), h(NumInput,{value:goalRate,onChange:v=>setGoalRate(Math.min(30,Math.max(0,v))),prefix:'%'}))
       ),
       h('div',{className:'mets'},
         h(Met,{lbl:'Krävs per månad',val:kr(gReq),col:gReq>visJarMon?'var(--red)':'var(--green)'}),
@@ -834,6 +843,152 @@ function PrognosTab({budget, jars}) {
       gReq>visJarMon
         ? h(Tip,{text:`Du behöver ${kr(gReq-visJarMon)} mer per månad än du sparar idag.`,type:'w'})
         : h(Tip,{text:`Du klarar det! ${kr(visJarMon-gReq)} per månad kvar att disponera.`,type:'ok'})
+    )
+  );
+}
+
+
+// ─── DASHBOARD TAB ────────────────────────────────────────────────────────────
+function DashboardTab({allBudgets, jars}) {
+  const r1=useRef(null),r2=useRef(null),r3=useRef(null),r4=useRef(null);
+  const c1=useRef(null),c2=useRef(null),c3=useRef(null),c4=useRef(null);
+
+  const sorted = [...allBudgets].sort((a,b)=>a.month_key.localeCompare(b.month_key));
+
+  const getFixed   = b => (b.expenses||[]).filter(e=>e.type==='fixed').reduce((s,e)=>s+(e.amount||0),0);
+  const getFun     = b => (b.expenses||[]).filter(e=>e.type==='fun').reduce((s,e)=>s+(e.amount||0),0);
+  const getSavings = b => Math.max(0, (b.income||0) - getFixed(b) - getFun(b));
+  const getRate    = b => (b.income||0) > 0 ? Math.round(getSavings(b)/(b.income)*100) : 0;
+
+  useEffect(() => {
+    if (sorted.length < 2) return;
+
+    const labels = sorted.map(b => {
+      const [y,m] = b.month_key.split('-');
+      return MN[+m-1].slice(0,3) + " '" + y.slice(2);
+    });
+
+    const base = {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:'#c3bdb0',font:{size:10},boxWidth:12,padding:10}},
+        tooltip:{backgroundColor:'#333330',titleColor:'#f2ede3',bodyColor:'#c3bdb0',borderColor:'#4e4d46',borderWidth:1}
+      },
+      scales:{
+        x:{grid:{color:'#3d3c37'},ticks:{color:'#9e9890',font:{size:10}},border:{color:'#4e4d46'}},
+        y:{grid:{color:'#3d3c37'},ticks:{color:'#9e9890',font:{size:10}},border:{color:'#4e4d46'}}
+      }
+    };
+    const yKr = v=>fmtS(v);
+    const yPct = v=>v+'%';
+
+    // ── Chart 1: Sparutveckling ──────────────────────────────────────────────
+    if(c1.current){c1.current.destroy();c1.current=null;}
+    c1.current = new Chart(r1.current, {
+      type:'line',
+      data:{labels, datasets:[{
+        label:'Totalt sparat (kr)',
+        data: sorted.map(b=>b.existing_savings||0),
+        borderColor:'#98c474', backgroundColor:'rgba(152,196,116,.12)',
+        fill:true, tension:.35, pointRadius:4, pointHoverRadius:6, borderWidth:2
+      }]},
+      options:{...base, scales:{...base.scales,
+        y:{...base.scales.y, ticks:{...base.scales.y.ticks, callback:yKr}}
+      }}
+    });
+
+    // ── Chart 2: Inkomst vs utgifter ─────────────────────────────────────────
+    if(c2.current){c2.current.destroy();c2.current=null;}
+    c2.current = new Chart(r2.current, {
+      type:'bar',
+      data:{labels, datasets:[
+        {label:'Inkomst',         data:sorted.map(b=>b.income||0),  backgroundColor:'rgba(180,142,192,.75)', borderRadius:3},
+        {label:'Fasta kostnader', data:sorted.map(getFixed),         backgroundColor:'rgba(90,160,255,.75)',  borderRadius:3},
+        {label:'Nöje',            data:sorted.map(getFun),           backgroundColor:'rgba(232,192,112,.75)', borderRadius:3}
+      ]},
+      options:{...base, scales:{...base.scales,
+        y:{...base.scales.y, ticks:{...base.scales.y.ticks, callback:yKr}}
+      }}
+    });
+
+    // ── Chart 3: Sparkvot-trend ──────────────────────────────────────────────
+    if(c3.current){c3.current.destroy();c3.current=null;}
+    c3.current = new Chart(r3.current, {
+      type:'line',
+      data:{labels, datasets:[
+        {label:'Sparkvot', data:sorted.map(getRate),
+          borderColor:'#fac7e6', backgroundColor:'rgba(250,199,230,.1)',
+          fill:true, tension:.35, pointRadius:4, pointHoverRadius:6, borderWidth:2},
+        {label:'Mål 20%', data:sorted.map(()=>20),
+          borderColor:'#4e4d46', borderDash:[5,4], pointRadius:0, borderWidth:1.5, label:'Mål 20%'}
+      ]},
+      options:{...base, scales:{...base.scales,
+        y:{...base.scales.y, min:0, max:Math.max(60,...sorted.map(getRate))+10,
+           ticks:{...base.scales.y.ticks, callback:yPct}}
+      }}
+    });
+
+    // ── Chart 4: Kostnadsutveckling per kategori ─────────────────────────────
+    if(c4.current){c4.current.destroy();c4.current=null;}
+    c4.current = new Chart(r4.current, {
+      type:'line',
+      data:{labels, datasets:[
+        {label:'Fasta kostnader', data:sorted.map(getFixed),
+          borderColor:'#7ab3f0', backgroundColor:'rgba(90,160,255,.1)',
+          fill:true, tension:.35, pointRadius:3, borderWidth:2},
+        {label:'Nöje', data:sorted.map(getFun),
+          borderColor:'#e8c070', backgroundColor:'rgba(232,192,112,.1)',
+          fill:true, tension:.35, pointRadius:3, borderWidth:2}
+      ]},
+      options:{...base, scales:{...base.scales,
+        y:{...base.scales.y, ticks:{...base.scales.y.ticks, callback:yKr}}
+      }}
+    });
+
+    return ()=>{[c1,c2,c3,c4].forEach(c=>{if(c.current){c.current.destroy();c.current=null;}});};
+  }, [allBudgets]);
+
+  if (sorted.length < 2) return h('div',{style:{textAlign:'center',padding:'4rem 1rem'}},
+    h('div',{style:{fontSize:36,marginBottom:12}},'📊'),
+    h('div',{style:{fontSize:14,fontWeight:600,color:'var(--tx)',marginBottom:6}},'Behöver mer data'),
+    h('div',{style:{fontSize:12,color:'var(--tx3)',lineHeight:1.6,maxWidth:280,margin:'0 auto'}},'Dashboarden aktiveras när du har budget för minst 2 månader. Lägg till nästa månads budget för att börja se din utveckling.')
+  );
+
+  // ── Summary metrics ────────────────────────────────────────────────────────
+  const totalSavingsDelta = (sorted[sorted.length-1].existing_savings||0) - (sorted[0].existing_savings||0);
+  const avgSavings  = Math.round(sorted.reduce((s,b)=>s+getSavings(b),0)/sorted.length);
+  const avgRate     = Math.round(sorted.reduce((s,b)=>s+getRate(b),0)/sorted.length);
+  const bestMonth   = sorted.reduce((best,b)=>getSavings(b)>getSavings(best)?b:best, sorted[0]);
+  const [by,bm]     = bestMonth.month_key.split('-');
+  const bestLbl     = MN[+bm-1].slice(0,3)+' '+by;
+
+  return h('div',null,
+    h(Card,null,
+      h('span',{className:'lbl'},'Sammanfattning · '+sorted.length+' månader med data'),
+      h('div',{className:'mets'},
+        h(Met,{lbl:'Sparökning totalt',    val:kr(totalSavingsDelta), col:totalSavingsDelta>=0?'var(--green)':'var(--red)'}),
+        h(Met,{lbl:'Genomsnitt sparande/mån',val:kr(avgSavings),       col:'var(--pink)'}),
+        h(Met,{lbl:'Genomsnittlig sparkvot', val:avgRate+'%',           col:avgRate>=20?'var(--green)':'var(--amb)'}),
+        h(Met,{lbl:'Bästa sparmånad',        val:bestLbl+'  '+kr(getSavings(bestMonth))})
+      )
+    ),
+    h('div',{className:'dash-grid'},
+      h(Card,{style:{margin:0}},
+        h('span',{className:'lbl'},'Sparutveckling'),
+        h('div',{style:{position:'relative',height:190}}, h('canvas',{ref:r1}))
+      ),
+      h(Card,{style:{margin:0}},
+        h('span',{className:'lbl'},'Inkomst vs utgifter'),
+        h('div',{style:{position:'relative',height:190}}, h('canvas',{ref:r2}))
+      ),
+      h(Card,{style:{margin:0}},
+        h('span',{className:'lbl'},'Sparkvot per månad'),
+        h('div',{style:{position:'relative',height:190}}, h('canvas',{ref:r3}))
+      ),
+      h(Card,{style:{margin:0}},
+        h('span',{className:'lbl'},'Kostnadsutveckling'),
+        h('div',{style:{position:'relative',height:190}}, h('canvas',{ref:r4}))
+      )
     )
   );
 }
@@ -858,6 +1013,7 @@ function App() {
   const [notifs, setNotifs]    = useState([]);
   const [showN,  setShowN]     = useState(false);
   const [saving, setSaving]    = useState(false);
+  const [allBudgets, setAllBudgets] = useState([]);
   const budTimer = useRef(null);
   const jarTimers = useRef({});
 
@@ -879,9 +1035,10 @@ function App() {
   // ── Bootstrap after login ──────────────────────────────────────────────────
   const bootstrap = async (session) => {
     const uid = session.user.id;
-    const [{data:prof},{data:mths},{data:js}] = await Promise.all([
-      q.profile(uid), q.budgetMths(uid), q.jars(uid)
+    const [{data:prof},{data:mths},{data:js},{data:abs}] = await Promise.all([
+      q.profile(uid), q.budgetMths(uid), q.jars(uid), q.allBudgets(uid)
     ]);
+    if (abs) setAllBudgets(abs);
     if (prof) { setProfile(prof); if (prof.jar_rate!=null) setJarRate(prof.jar_rate); }
     const mkList = mths?.map(m=>m.month_key) || [];
     setMonths(mkList);
@@ -946,6 +1103,8 @@ function App() {
       if (!sess) return;
       setSaving(true);
       await q.saveBudget({user_id:sess.user.id, month_key:month, income:newB.income, existing_savings:newB.existing, expenses:newB.expenses, updated_at:new Date().toISOString()});
+      const {data:fresh} = await q.allBudgets(sess.user.id);
+      if (fresh) setAllBudgets(fresh);
       setSaving(false);
     }, 800);
   };
@@ -1039,7 +1198,7 @@ function App() {
 
   const uid = sess.user.id;
   const visibleJarMon = jars.filter(j=>!j.hidden).reduce((s,j)=>s+(j.monthly||0),0);
-  const TABS = [['budget','Budget'],['jars','Sparlådor'],['gemensamt','Gemensamt'],['prognos','Prognos']];
+  const TABS = [['budget','Budget'],['jars','Sparlådor'],['gemensamt','Gemensamt'],['prognos','Prognos'],['oversikt','Översikt']];
 
   if (needCreate) return h('div',{className:'app'},
     h(CreateMonth,{month, hasPrev:!!prevBud, onCreate:createMonth})
@@ -1070,7 +1229,8 @@ function App() {
       !showN && tab==='budget'    && h(BudgetTab,{budget,onChange:onBudgetChange,visibleJarMon}),
       !showN && tab==='jars'      && h(JarsTab,{jars,jarRate,onAdd:addJar,onUpdate:updateJar,onDelete:deleteJar,onRate:saveJarRate,jarErr}),
       !showN && tab==='gemensamt' && h(SharedTab,{userId:uid,userEmail:sess.user.email,userName:profile?.name||'',sharedGoals:shared,onReload:()=>loadShared(uid)}),
-      !showN && tab==='prognos'   && h(PrognosTab,{budget,jars})
+      !showN && tab==='prognos'   && h(PrognosTab,{budget,jars}),
+      !showN && tab==='oversikt'  && h(DashboardTab,{allBudgets,jars})
     )
   );
 }
