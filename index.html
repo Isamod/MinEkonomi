@@ -613,7 +613,7 @@ function JarsTab({jars, jarRate, onAdd, onUpdate, onDelete, onRate, jarErr}) {
         h('button',{className:'rm',onClick:()=>onDelete(j.id)},'×')
       )),
       h('button',{className:'add-row',onClick:onAdd},'+ Lägg till sparlåda'),
-      jars.some(j=>j.hidden) && h('div',{style:{fontSize:11,color:'var(--tx3)',marginTop:6,lineHeight:1.5}},'Dolda lådor (t.ex. pension) exkluderas från totalsumman och 50/30/20-beräkningen.')
+      jars.some(j=>j.hidden) && h('div',{style:{fontSize:11,color:'var(--tx3)',marginTop:6,lineHeight:1.5}},'Dolda lådor exkluderas från totalsumman.')
     ),
     h(Card,null,
       h('span',{className:'lbl'},'Totalt synligt sparande'),
