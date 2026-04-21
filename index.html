@@ -622,7 +622,7 @@ function JarsTab({jars, jarRate, onAdd, onUpdate, onDelete, onRate, jarErr}) {
         h(Met,{lbl:'Sätter in/mån',val:kr(totalMon),col:'var(--pink)'}),
         h(Met,{lbl:'Om 1 år',val:kr(fv(totalBal,totalMon,12,jarRate)),col:'var(--green)'})
       ),
-      h('div',{className:'g4'},
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}},
         [2,5,10].map(y=>h('div',{key:y,style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.7rem',textAlign:'center'}},
           h('div',{style:{fontSize:9,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--tx3)',marginBottom:3}},'Om '+y+' år'),
           h('div',{style:{fontSize:14,fontFamily:'Georgia,serif',color:'var(--green)'}},fmtS(fv(totalBal,totalMon,y*12,jarRate)))
