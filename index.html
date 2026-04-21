@@ -885,10 +885,12 @@ function DashboardTab({allBudgets, jars}) {
 
   const sorted = [...allBudgets].sort((a,b)=>a.month_key.localeCompare(b.month_key));
 
-  const getFixed   = b => (b.expenses||[]).filter(e=>e.type==='fixed').reduce((s,e)=>s+(e.amount||0),0);
-  const getFun     = b => (b.expenses||[]).filter(e=>e.type==='fun').reduce((s,e)=>s+(e.amount||0),0);
-  const getSavings = b => Math.max(0, (b.income||0) - getFixed(b) - getFun(b));
-  const getRate    = b => (b.income||0) > 0 ? Math.round(getSavings(b)/(b.income)*100) : 0;
+  const getFixed    = b => (b.expenses||[]).filter(e=>e.type==='fixed').reduce((s,e)=>s+(e.amount||0),0);
+  const getFun      = b => (b.expenses||[]).filter(e=>e.type==='fun').reduce((s,e)=>s+(e.amount||0),0);
+  // Faktiskt sparande = summan av sparlådornas månadssparande (inte budget-överskott)
+  const totalJarMon = jars.reduce((s,j)=>s+(j.monthly||0),0);
+  const getSavings  = b => totalJarMon;
+  const getRate     = b => (b.income||0) > 0 ? Math.round(totalJarMon/(b.income)*100) : 0;
 
   useEffect(() => {
     if (sorted.length < 2) return;
@@ -986,24 +988,18 @@ function DashboardTab({allBudgets, jars}) {
 
   // ── Summary metrics ────────────────────────────────────────────────────────
   const totalSavingsDelta = (sorted[sorted.length-1].existing_savings||0) - (sorted[0].existing_savings||0);
-  const avgSavings  = Math.round(sorted.reduce((s,b)=>s+getSavings(b),0)/sorted.length);
   const avgRate     = Math.round(sorted.reduce((s,b)=>s+getRate(b),0)/sorted.length);
-  const bestMonth   = sorted.reduce((best,b)=>getSavings(b)>getSavings(best)?b:best, sorted[0]);
-  const [by,bm]     = bestMonth.month_key.split('-');
-  const bestLbl     = MN[+bm-1]+' '+by;   // full month name e.g. "Mars 2024"
+  // Snittinkomst over perioden
+  const avgIncome   = Math.round(sorted.reduce((s,b)=>s+(b.income||0),0)/sorted.length);
 
   return h('div',null,
     h(Card,null,
       h('span',{className:'lbl'},'Sammanfattning · '+sorted.length+' månader med data'),
       h('div',{className:'mets'},
-        h(Met,{lbl:'Sparökning totalt',      val:kr(totalSavingsDelta), col:totalSavingsDelta>=0?'var(--green)':'var(--red)'}),
-        h(Met,{lbl:'Genomsnitt sparande/mån',val:kr(avgSavings),        col:'var(--pink)'}),
-        h(Met,{lbl:'Genomsnittlig sparkvot', val:avgRate+'%',            col:avgRate>=20?'var(--green)':'var(--amb)'}),
-        h('div',{className:'met'},
-          h('div',{className:'met-l'},'Bästa sparmånad'),
-          h('div',{style:{fontSize:14,fontWeight:600,color:'var(--tx)',marginBottom:3,lineHeight:1.3}},bestLbl),
-          h('div',{style:{fontSize:17,fontFamily:'Georgia,serif',color:'var(--green)',letterSpacing:'-.02em'}},kr(getSavings(bestMonth)))
-        )
+        h(Met,{lbl:'Sparökning totalt',    val:kr(totalSavingsDelta), col:totalSavingsDelta>=0?'var(--green)':'var(--red)'}),
+        h(Met,{lbl:'Sparar/mån (lådor)',   val:kr(totalJarMon),       col:'var(--pink)'}),
+        h(Met,{lbl:'Sparkvot (snitt)',      val:avgRate+'%',            col:avgRate>=20?'var(--green)':'var(--amb)'}),
+        h(Met,{lbl:'Snitinkomst/mån',      val:kr(avgIncome)})
       )
     ),
     h('div',{className:'dash-grid'},
