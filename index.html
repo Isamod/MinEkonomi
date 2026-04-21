@@ -446,15 +446,19 @@ function ResetPage() {
 }
 
 // ─── CREATE MONTH ─────────────────────────────────────────────────────────────
-function CreateMonth({month, hasPrev, onCreate}) {
+function CreateMonth({month, hasPrev, onCreate, onCancel}) {
   return h('div',{style:{minHeight:'60vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'2rem'}},
-    h('div',{style:{width:'100%',maxWidth:380,background:'var(--bg2)',border:'1px solid var(--bd)',borderRadius:'var(--r2)',padding:'1.5rem'}},
-      h('div',{style:{fontSize:16,fontFamily:'Georgia,serif',color:'var(--pink)',marginBottom:6}},'Ny budget för '+fmtMK(month)),
-      h('div',{style:{fontSize:12,color:'var(--tx2)',marginBottom:'1.25rem',lineHeight:1.6}},
-        hasPrev ? 'Kopiera från förra månaden eller börja från noll?' : 'Välj startpunkt:'),
-      h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+    h('div',{style:{width:'100%',maxWidth:400,background:'var(--bg2)',border:'1px solid var(--bd)',borderRadius:'var(--r2)',padding:'1.75rem'}},
+      h('div',{style:{fontSize:17,fontFamily:'Georgia,serif',color:'var(--pink)',marginBottom:6}},'Ny budget för '+fmtMK(month)),
+      h('div',{style:{fontSize:12,color:'var(--tx2)',marginBottom:'1.5rem',lineHeight:1.6}},
+        hasPrev ? 'Kopiera utgiftskategorier från förra månaden eller börja med en tom budget?' : 'Välj hur du vill starta:'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:8}},
         hasPrev && h('button',{className:'btn-p btn-full',onClick:()=>onCreate(true)},'Kopiera förra månaden'),
-        h('button',{className:'btn-s btn-full',onClick:()=>onCreate(false)},hasPrev?'Tom budget':'Starta med mall')
+        h('button',{className:'btn-s btn-full',onClick:()=>onCreate(false)},hasPrev?'Tom budget':'Starta med mall'),
+        h('button',{
+          onClick:onCancel,
+          style:{width:'100%',padding:'10px',border:'none',background:'none',color:'var(--tx3)',fontSize:12,cursor:'pointer',marginTop:4}
+        },'← Avbryt och gå tillbaka')
       )
     )
   );
@@ -485,7 +489,7 @@ function NotifPanel({notifs, onAccept, onDecline, onClose}) {
 }
 
 // ─── BUDGET TAB ───────────────────────────────────────────────────────────────
-function BudgetTab({budget, onChange, visibleJarMon}) {
+function BudgetTab({budget, onChange, visibleJarMon, onClear, onDelete}) {
   const idRef = useRef(Date.now());
   const fixed   = budget.expenses.filter(e=>e.type==='fixed').reduce((s,e)=>s+e.amount,0);
   const fun     = budget.expenses.filter(e=>e.type==='fun').reduce((s,e)=>s+e.amount,0);
@@ -498,6 +502,16 @@ function BudgetTab({budget, onChange, visibleJarMon}) {
   const delExp  = id => onChange({...budget,expenses:budget.expenses.filter(e=>e.id!==id)});
 
   return h('div',null,
+    h('div',{style:{display:'flex',gap:8,justifyContent:'flex-end',marginBottom:'.75rem'}},
+      h('button',{
+        onClick:onClear,
+        style:{padding:'6px 12px',fontSize:11,border:'1px solid var(--bd)',borderRadius:'var(--r)',background:'none',color:'var(--tx3)',cursor:'pointer'}
+      },'Rensa budget'),
+      h('button',{
+        onClick:onDelete,
+        style:{padding:'6px 12px',fontSize:11,border:'1px solid var(--red)',borderRadius:'var(--r)',background:'none',color:'var(--red)',cursor:'pointer'}
+      },'Ta bort månad')
+    ),
     h(Card,null,
       h('span',{className:'lbl'},'Inkomst'),
       h('div',{className:'g2',style:{marginBottom:'1rem'}},
@@ -1096,6 +1110,26 @@ function App() {
     setNotifs(data||[]);
   };
 
+  // ── Clear current month budget ──────────────────────────────────────────────
+  const clearBudget = async () => {
+    if (!confirm('Nollställa alla värden för '+fmtMK(month)+'? Månaden finns kvar men töms på all data.')) return;
+    const empty = defBudget();
+    setBudget(empty);
+    await q.saveBudget({user_id:sess.user.id, month_key:month, income:0, existing_savings:0, expenses:[], updated_at:new Date().toISOString()});
+    const {data:fresh} = await q.allBudgets(sess.user.id); if (fresh) setAllBudgets(fresh);
+  };
+
+  // ── Delete current month entirely ────────────────────────────────────────────
+  const deleteMonth = async () => {
+    if (!confirm('Ta bort '+fmtMK(month)+' helt från historiken? Detta går inte att ångra.')) return;
+    await db.from('budgets').delete().eq('user_id',sess.user.id).eq('month_key',month);
+    const nm = months.filter(m=>m!==month);
+    setMonths(nm);
+    const {data:fresh} = await q.allBudgets(sess.user.id); if (fresh) setAllBudgets(fresh);
+    const fallback = nm.length ? nm[nm.length-1] : today();
+    await goMonth(fallback);
+  };
+
   // ── Month navigation (Problem 3 persistence) ─────────────────────────────────
   const goMonth = async (mk) => {
     setMonth(mk); lsSet('app:month', mk); // ← persist to localStorage
@@ -1218,7 +1252,7 @@ function App() {
   const TABS = [['budget','Budget'],['jars','Sparlådor'],['gemensamt','Gemensamt'],['prognos','Prognos'],['oversikt','Översikt']];
 
   if (needCreate) return h('div',{className:'app'},
-    h(CreateMonth,{month, hasPrev:!!prevBud, onCreate:createMonth})
+    h(CreateMonth,{month, hasPrev:!!prevBud, onCreate:createMonth, onCancel:()=>{ setNeedCreate(false); goMonth(months[months.length-1]||today()); }})
   );
 
   return h('div',{className:'app'},
@@ -1243,7 +1277,7 @@ function App() {
     // ── Content ─────────────────────────────────────────────────────────────
     h('div',{className:'content'},
       showN && h(NotifPanel,{notifs,onAccept:acceptInvite,onDecline:declineInvite,onClose:()=>setShowN(false)}),
-      !showN && tab==='budget'    && h(BudgetTab,{budget,onChange:onBudgetChange,visibleJarMon}),
+      !showN && tab==='budget'    && h(BudgetTab,{budget,onChange:onBudgetChange,visibleJarMon,onClear:clearBudget,onDelete:deleteMonth}),
       !showN && tab==='jars'      && h(JarsTab,{jars,jarRate,onAdd:addJar,onUpdate:updateJar,onDelete:deleteJar,onRate:saveJarRate,jarErr}),
       !showN && tab==='gemensamt' && h(SharedTab,{userId:uid,userEmail:sess.user.email,userName:profile?.name||'',sharedGoals:shared,onReload:()=>loadShared(uid)}),
       !showN && tab==='prognos'   && h(PrognosTab,{budget,jars}),
