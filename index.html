@@ -824,7 +824,7 @@ function PrognosTab({budget, jars}) {
     :((goalAmt-existing*Math.pow(1+mr2,goalMths))*mr2/(Math.pow(1+mr2,goalMths)-1));
   gReq=Math.max(0,gReq);
   const gPaid=gReq*goalMths, gInt=Math.max(0,goalAmt-existing-gPaid);
-  const visJarMon=jars.filter(j=>!j.hidden).reduce((s,j)=>s+(j.monthly||0),0);
+  const visJarMon=jars.reduce((s,j)=>s+(j.monthly||0),0); // Alla lådor
 
   // Shared field style
   const fieldRow = (lbl, val, set, prefix='kr') => h('div',{className:'prog-field'},
@@ -1296,7 +1296,7 @@ function App() {
   if (!sess)         return h(AuthPage);
 
   const uid = sess.user.id;
-  const visibleJarMon = jars.filter(j=>!j.hidden).reduce((s,j)=>s+(j.monthly||0),0);
+  const visibleJarMon = jars.reduce((s,j)=>s+(j.monthly||0),0); // Alla lådor inkl. dolda räknas i 50/30/20
   const TABS = [['budget','Budget'],['jars','Sparlådor'],['gemensamt','Gemensamt'],['prognos','Prognos'],['oversikt','Översikt']];
 
   if (needCreate) return h('div',{className:'app'},
