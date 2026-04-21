@@ -314,17 +314,20 @@ function ProjChart({data}) {
 
 // ─── MONTH NAV (Problem 4 redesign) ──────────────────────────────────────────
 function MonthNav({month, months, onGo}) {
-  const all = [...new Set([...months, month])].sort();
+  // months[] comes from DB (reloadMonths) — already sorted newest-first.
+  // Merge in current month only if not already present (e.g. browsing empty month).
   const hasBudget = mk => months.includes(mk);
+  const opts = months.includes(month)
+    ? months
+    : [month, ...months].sort().reverse(); // newest-first
   return h('div',{className:'mn-wrap'},
     h('button',{className:'mn-arr','aria-label':'Föregående månad',onClick:()=>onGo(adjMK(month,-1))},'‹'),
     h('select',{className:'mn-sel',value:month,onChange:e=>onGo(e.target.value)},
-      // Always include current month even if no budget yet
-      [...new Set([...all, month])].sort().reverse().map(mk =>
-        h('option',{key:mk,value:mk}, fmtMK(mk) + (hasBudget(mk) ? '' : ' (tom)'))
+      opts.map(mk =>
+        h('option',{key:mk,value:mk}, fmtMK(mk) + (hasBudget(mk) ? '' : ' (ingen budget)'))
       )
     ),
-    hasBudget(month) && h('span',{className:'mn-dot',title:'Budget finns'}),
+    hasBudget(month) && h('span',{className:'mn-dot',title:'Budget sparad'}),
     h('button',{className:'mn-arr','aria-label':'Nästa månad',onClick:()=>onGo(adjMK(month,1))},'›')
   );
 }
@@ -1071,7 +1074,8 @@ function App() {
     ]);
     if (abs) setAllBudgets(abs);
     if (prof) { setProfile(prof); if (prof.jar_rate!=null) setJarRate(prof.jar_rate); }
-    const mkList = mths?.map(m=>m.month_key) || [];
+    // Newest-first sort so dropdown shows most recent at top
+    const mkList = (mths?.map(m=>m.month_key) || []).sort().reverse();
     setMonths(mkList);
     if (js) setJars(js);
     // Restore last month from localStorage (Problem 3)
@@ -1110,10 +1114,20 @@ function App() {
     setNotifs(data||[]);
   };
 
-  // ── Clear current month budget ──────────────────────────────────────────────
+  // ── Reload months list from DB (source of truth) ────────────────────────────
+  const reloadMonths = async (uid) => {
+    const {data} = await q.budgetMths(uid||sess.user.id);
+    // Only months that actually have a saved budget row belong in the list.
+    // Sort newest-first so the dropdown shows most recent at top.
+    const mk = (data||[]).map(r=>r.month_key).sort().reverse();
+    setMonths(mk);
+    return mk;
+  };
+
+  // ── Clear current month (zero out values, keep the row) ──────────────────────
   const clearBudget = async () => {
-    if (!confirm('Nollställa alla värden för '+fmtMK(month)+'? Månaden finns kvar men töms på all data.')) return;
-    const empty = defBudget();
+    if (!confirm('Nollställa alla värden för '+fmtMK(month)+'? Månaden finns kvar i menyn men töms på data.')) return;
+    const empty = {...defBudget(), income:0, existing:0};
     setBudget(empty);
     await q.saveBudget({user_id:sess.user.id, month_key:month, income:0, existing_savings:0, expenses:[], updated_at:new Date().toISOString()});
     const {data:fresh} = await q.allBudgets(sess.user.id); if (fresh) setAllBudgets(fresh);
@@ -1123,27 +1137,61 @@ function App() {
   const deleteMonth = async () => {
     if (!confirm('Ta bort '+fmtMK(month)+' helt från historiken? Detta går inte att ångra.')) return;
     await db.from('budgets').delete().eq('user_id',sess.user.id).eq('month_key',month);
-    const nm = months.filter(m=>m!==month);
-    setMonths(nm);
     const {data:fresh} = await q.allBudgets(sess.user.id); if (fresh) setAllBudgets(fresh);
-    const fallback = nm.length ? nm[nm.length-1] : today();
-    await goMonth(fallback);
+    // Reload months from DB — do NOT rely on local filter which may be stale
+    const mk = await reloadMonths();
+    // Navigate to most recent remaining month (or today as blank slate)
+    const fallback = mk.length ? mk[0] : today();
+    // Use switchMonth (not goMonth) to avoid re-adding deleted month
+    await switchMonth(fallback);
   };
 
-  // ── Month navigation (Problem 3 persistence) ─────────────────────────────────
-  const goMonth = async (mk) => {
-    setMonth(mk); lsSet('app:month', mk); // ← persist to localStorage
-    const nm=[...new Set([...months,mk])].sort(); setMonths(nm);
+  // ── switchMonth: navigate WITHOUT mutating the months list ───────────────────
+  // goMonth used to add the target to months[] immediately — that caused the
+  // cancel-loop because the empty month appeared in the list before any budget
+  // was saved. switchMonth only loads data; months[] is only updated by
+  // reloadMonths() (called after actual DB writes).
+  const switchMonth = async (mk) => {
+    setMonth(mk); lsSet('app:month', mk);
     if (sess) await loadBudget(sess.user.id, mk);
+  };
+
+  // ── goMonth: public nav handler (keeps months list in sync) ──────────────────
+  // Called by MonthNav arrows/dropdown. We reload from DB after navigation so
+  // the list only ever contains months that actually exist in the database.
+  const goMonth = async (mk) => {
+    setMonth(mk); lsSet('app:month', mk);
+    if (sess) {
+      await loadBudget(sess.user.id, mk);
+      // If a budget was just created for this month it'll appear after createMonth.
+      // If we're just peeking at an empty month, don't add it to the list.
+    }
+  };
+
+  // ── cancelCreate: go back without triggering needCreate again ─────────────────
+  const cancelCreate = () => {
+    setNeedCreate(false);
+    // Navigate to the most recent month that has actual saved data.
+    // months[] only contains DB-backed months (reloadMonths ensures this).
+    const fallback = months.length ? months[0] : null;
+    if (fallback && fallback !== month) {
+      switchMonth(fallback);
+    } else {
+      // No other months exist — just hide the modal, stay on current month
+      // without creating a budget. User sees the empty app state.
+      setNeedCreate(false);
+    }
   };
 
   // ── Create month ─────────────────────────────────────────────────────────────
   const createMonth = async (copy) => {
-    const b = copy&&prevBud ? {...prevBud} : defBudget();
+    const b = copy&&prevBud ? {...prevBud,expenses:(prevBud.expenses||[]).map(e=>({...e}))} : defBudget();
     setBudget(b); setNeedCreate(false);
-    const nm=[...new Set([...months,month])].sort(); setMonths(nm);
     if (!sess) return;
-    await q.saveBudget({user_id:sess.user.id, month_key:month, income:b.income, existing_savings:b.existing, expenses:b.expenses});
+    await q.saveBudget({user_id:sess.user.id, month_key:month, income:b.income, existing_savings:b.existing||0, expenses:b.expenses});
+    // Now reload months from DB — the new month will appear in the list
+    await reloadMonths();
+    const {data:fresh} = await q.allBudgets(sess.user.id); if (fresh) setAllBudgets(fresh);
   };
 
   // ── Budget change (debounced) ─────────────────────────────────────────────────
@@ -1252,7 +1300,7 @@ function App() {
   const TABS = [['budget','Budget'],['jars','Sparlådor'],['gemensamt','Gemensamt'],['prognos','Prognos'],['oversikt','Översikt']];
 
   if (needCreate) return h('div',{className:'app'},
-    h(CreateMonth,{month, hasPrev:!!prevBud, onCreate:createMonth, onCancel:()=>{ setNeedCreate(false); goMonth(months[months.length-1]||today()); }})
+    h(CreateMonth,{month, hasPrev:!!prevBud, onCreate:createMonth, onCancel:cancelCreate})
   );
 
   return h('div',{className:'app'},
