@@ -249,6 +249,8 @@ const q = {
   findEmail:  email    => db.rpc('find_user_by_email', {p_email: email.trim().toLowerCase()}),
   sGoals:     uid      => db.from('shared_goal_members').select('*, shared_goals(*)').eq('user_id',uid).neq('status','declined'),
   sMembers:   ids      => db.from('shared_goal_members').select('*, profiles(name,email)').in('goal_id',ids),
+  contribs:   ids      => db.from('shared_goal_contributions').select('*, profiles(name)').in('goal_id',ids).order('contributed_at',{ascending:false}),
+  addContrib: data     => db.from('shared_goal_contributions').insert(data),
   allBudgets: uid      => db.from('budgets').select('*').eq('user_id',uid).order('month_key'),
 };
 
@@ -655,12 +657,37 @@ function JarsTab({jars, jarRate, onAdd, onUpdate, onDelete, onRate, jarErr}) {
 
 // ─── SHARED TAB (Problem 2 fix) ───────────────────────────────────────────────
 function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
-  const [showForm,setShowForm] = useState(false);
-  const [form,setForm]   = useState({name:'',target:0,email:'',myMonthly:0});
-  const [err,setErr]     = useState('');
-  const [saving,setSaving]=useState(false);
-  const [editId,setEditId]=useState(null);
-  const [editC,setEditC] = useState({contrib:0,monthly:0});
+  const [showForm,  setShowForm]  = useState(false);
+  const [form,      setForm]      = useState({name:'',target:0,email:'',myMonthly:0});
+  const [err,       setErr]       = useState('');
+  const [saving,    setSaving]    = useState(false);
+  const [editId,    setEditId]    = useState(null);   // which goal shows deposit form
+  const [depAmt,    setDepAmt]    = useState(0);
+  const [depNote,   setDepNote]   = useState('');
+  const [depErr,    setDepErr]    = useState('');
+  const [contribs,  setContribs]  = useState({});     // goalId → [{amount,note,date,name}]
+  const [loadingC,  setLoadingC]  = useState({});
+
+  // Load contribution history for all goals
+  const loadContribs = async (goals) => {
+    if (!goals.length) return;
+    const ids = goals.map(g=>g.id);
+    const {data} = await q.contribs(ids);
+    if (!data) return;
+    const map = {};
+    ids.forEach(id => { map[id] = []; });
+    data.forEach(c => {
+      if (!map[c.goal_id]) map[c.goal_id]=[];
+      map[c.goal_id].push({
+        id:c.id, amount:c.amount, note:c.note||'',
+        date: new Date(c.contributed_at).toLocaleDateString('sv-SE'),
+        userName: c.profiles?.name||'Okänd', userId: c.user_id
+      });
+    });
+    setContribs(map);
+  };
+
+  useEffect(() => { if (sharedGoals.length) loadContribs(sharedGoals); }, [sharedGoals]);
 
   const createGoal = async () => {
     setErr('');
@@ -695,9 +722,26 @@ function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
     setSaving(false); onReload();
   };
 
-  const saveContrib = async (goalId) => {
-    await db.from('shared_goal_members').update({contribution:editC.contrib,monthly_contrib:editC.monthly}).eq('goal_id',goalId).eq('user_id',userId);
-    setEditId(null); onReload();
+  const addDeposit = async (goalId) => {
+    setDepErr('');
+    if (!depAmt || depAmt <= 0) { setDepErr('Ange ett belopp.'); return; }
+    setLoadingC(p=>({...p,[goalId]:true}));
+    // 1. Insert contribution row
+    const {error:ce} = await q.addContrib({
+      goal_id: goalId, user_id: userId,
+      amount: depAmt, note: depNote.trim()||null
+    });
+    if (ce) { setDepErr('Kunde inte spara: '+ce.message); setLoadingC(p=>({...p,[goalId]:false})); return; }
+    // 2. Update running total on member row
+    const goal = sharedGoals.find(g=>g.id===goalId);
+    const myMem = (goal?.members||[]).find(m=>m.user_id===userId)||{};
+    const newTotal = (myMem.contribution||0) + depAmt;
+    await db.from('shared_goal_members').update({contribution: newTotal}).eq('goal_id',goalId).eq('user_id',userId);
+    // 3. Reset form, reload
+    setDepAmt(0); setDepNote(''); setEditId(null); setDepErr('');
+    setLoadingC(p=>({...p,[goalId]:false}));
+    await loadContribs(sharedGoals);
+    onReload();
   };
 
   const leaveGoal = async (goalId) => {
@@ -778,22 +822,70 @@ function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
                 : h('div',{style:{fontSize:11,color:'var(--tx3)'}},'Inbjudan skickad…')
             )
           ),
-          isEd
-            ? h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.85rem'}},
-                h('div',{style:{fontSize:10,textTransform:'uppercase',color:'var(--tx3)',marginBottom:8}},'Uppdatera mitt bidrag'),
-                h('div',{className:'g2',style:{marginBottom:10}},
-                  h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Mitt saldo hittills'),h(NumInput,{value:editC.contrib,onChange:v=>setEditC(p=>({...p,contrib:v}))})),
-                  h('div',null,h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Mitt bidrag/mån'),h(NumInput,{value:editC.monthly,onChange:v=>setEditC(p=>({...p,monthly:v}))}))
+          // ── Deposit form ────────────────────────────────────────────────
+          isEd && h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.85rem',marginBottom:'.75rem'}},
+            h('div',{style:{fontSize:10,textTransform:'uppercase',color:'var(--tx3)',letterSpacing:'.1em',marginBottom:10}},'Lägg till insättning'),
+            h('div',{className:'g2',style:{marginBottom:8}},
+              h('div',null,
+                h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Belopp (kr)'),
+                h(NumInput,{value:depAmt,onChange:setDepAmt})
+              ),
+              h('div',null,
+                h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Kommentar (valfri)'),
+                h('input',{type:'text',value:depNote,onChange:e=>setDepNote(e.target.value),
+                  placeholder:'t.ex. Lön mars',className:'nopx',
+                  style:{width:'100%',background:'var(--bg)',border:'1px solid var(--bd)',borderRadius:'var(--r)',padding:'9px 10px',fontSize:13,color:'var(--tx)',fontFamily:'inherit',outline:'none'}})
+              )
+            ),
+            depErr && h(Tip,{text:depErr,type:'err'}),
+            h('div',{style:{display:'flex',gap:7}},
+              h('button',{className:'btn-p',style:{fontSize:12,padding:'7px 16px'},
+                onClick:()=>addDeposit(goal.id),disabled:loadingC[goal.id]},
+                loadingC[goal.id]?h(Spin):'Spara insättning'),
+              h('button',{className:'btn-s',style:{fontSize:12,padding:'7px 12px'},onClick:()=>setEditId(null)},'Avbryt')
+            )
+          ),
+          // ── Contribution history ────────────────────────────────────────────
+          (contribs[goal.id]||[]).length > 0 && h('div',{style:{marginBottom:'.75rem'}},
+            h('div',{style:{fontSize:10,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--tx3)',marginBottom:6}},'Insättningshistorik'),
+            h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',overflow:'hidden'}},
+              (contribs[goal.id]||[]).map((c,ci)=>h('div',{key:c.id,
+                style:{display:'flex',justifyContent:'space-between',alignItems:'center',
+                  padding:'8px 10px',borderBottom:ci<(contribs[goal.id].length-1)?'1px solid var(--bd)':'none',
+                  gap:8}},
+                h('div',{style:{flex:1,minWidth:0}},
+                  h('div',{style:{fontSize:11,color:c.userId===userId?ac:'var(--tx2)',fontWeight:500}},c.userName),
+                  h('div',{style:{fontSize:10,color:'var(--tx3)',whiteSpace:'nowrap'}},c.date+(c.note?' · '+c.note:''))
                 ),
-                h('div',{style:{display:'flex',gap:7}},
-                  h('button',{className:'btn-p',style:{fontSize:12,padding:'7px 16px'},onClick:()=>saveContrib(goal.id)},'Spara'),
-                  h('button',{className:'btn-s',style:{fontSize:12,padding:'7px 12px'},onClick:()=>setEditId(null)},'Avbryt')
+                h('div',{style:{display:'flex',alignItems:'center',gap:8,flexShrink:0}},
+                  h('div',{style:{fontSize:13,fontFamily:'Georgia,serif',color:c.userId===userId?ac:'var(--tx)'}},'+'+kr(c.amount)),
+                  // Only show delete on own contributions
+                  c.userId===userId && h('button',{
+                    title:'Ta bort insättning',
+                    onClick: async()=>{
+                      if(!confirm('Ta bort insättningen på '+kr(c.amount)+'?')) return;
+                      await db.from('shared_goal_contributions').delete().eq('id',c.id);
+                      // Recalculate member total from remaining contributions
+                      const remaining = (contribs[goal.id]||[]).filter(x=>x.id!==c.id && x.userId===userId);
+                      const newTotal = remaining.reduce((s,x)=>s+x.amount,0);
+                      await db.from('shared_goal_members').update({contribution:newTotal}).eq('goal_id',goal.id).eq('user_id',userId);
+                      await loadContribs(sharedGoals);
+                      onReload();
+                    },
+                    style:{width:22,height:22,border:'none',background:'none',color:'var(--tx3)',fontSize:14,cursor:'pointer',
+                      borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,padding:0}
+                  },'×')
                 )
-              )
-            : h('div',{style:{display:'flex',gap:7,flexWrap:'wrap'}},
-                h('button',{className:'btn-s',style:{fontSize:11,padding:'6px 12px'},onClick:()=>{setEditId(goal.id);setEditC({contrib:myC,monthly:myM});}},'Uppdatera mitt bidrag'),
-                h('button',{className:'btn-g',style:{color:'var(--red)'},onClick:()=>leaveGoal(goal.id)},'Lämna')
-              )
+              ))
+            )
+          ),
+          // ── Actions ────────────────────────────────────────────────────────
+          !isEd && h('div',{style:{display:'flex',gap:7,flexWrap:'wrap'}},
+            h('button',{className:'btn-p',style:{fontSize:11,padding:'6px 14px'},
+              onClick:()=>{setEditId(goal.id);setDepAmt(0);setDepNote('');setDepErr('');}},
+              '+ Lägg till insättning'),
+            h('button',{className:'btn-g',style:{color:'var(--red)'},onClick:()=>leaveGoal(goal.id)},'Lämna')
+          )
         )
       );
     })
