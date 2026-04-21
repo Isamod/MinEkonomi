@@ -662,9 +662,13 @@ function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
   const [err,       setErr]       = useState('');
   const [saving,    setSaving]    = useState(false);
   const [editId,    setEditId]    = useState(null);   // which goal shows deposit form
+  const [editMode,  setEditMode]  = useState('dep');  // 'dep' | 'monthly' | 'goal'
   const [depAmt,    setDepAmt]    = useState(0);
   const [depNote,   setDepNote]   = useState('');
   const [depErr,    setDepErr]    = useState('');
+  const [newMonthly,setNewMonthly]= useState(0);
+  const [goalEdit,  setGoalEdit]  = useState({name:'',target:0,email:''});
+  const [goalEditErr,setGoalEditErr]=useState('');
   const [contribs,  setContribs]  = useState({});     // goalId → [{amount,note,date,name}]
   const [loadingC,  setLoadingC]  = useState({});
 
@@ -742,6 +746,43 @@ function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
     setLoadingC(p=>({...p,[goalId]:false}));
     await loadContribs(sharedGoals);
     onReload();
+  };
+
+  const saveMonthly = async (goalId) => {
+    await db.from('shared_goal_members')
+      .update({monthly_contrib: newMonthly})
+      .eq('goal_id', goalId).eq('user_id', userId);
+    setEditId(null); onReload();
+  };
+
+  const saveGoalEdit = async (goal) => {
+    setGoalEditErr('');
+    if (!goalEdit.name.trim()) return setGoalEditErr('Ange ett målnamn.');
+    if (!goalEdit.target || goalEdit.target <= 0) return setGoalEditErr('Ange ett målbelopp.');
+    // Update goal name and target
+    const {error} = await db.from('shared_goals')
+      .update({name: goalEdit.name.trim(), target: Number(goalEdit.target)})
+      .eq('id', goal.id);
+    if (error) return setGoalEditErr('Kunde inte spara: '+error.message);
+    // Optionally invite a new member
+    const newEmail = goalEdit.email.trim().toLowerCase();
+    if (newEmail && newEmail.includes('@')) {
+      const {data:foundRaw} = await q.findEmail(newEmail);
+      const foundArr = Array.isArray(foundRaw) ? foundRaw : (foundRaw ? [foundRaw] : []);
+      if (foundArr.length === 0) return setGoalEditErr('Användaren "'+goalEdit.email+'" hittades inte.');
+      const newMemberId = foundArr[0].id;
+      const alreadyIn = (goal.members||[]).some(m=>m.user_id===newMemberId);
+      if (!alreadyIn) {
+        await db.from('shared_goal_members').insert({
+          goal_id:goal.id, user_id:newMemberId, status:'pending', contribution:0, monthly_contrib:0
+        });
+        await db.from('notifications').insert({
+          user_id:newMemberId, type:'goal_invite',
+          data:{goal_id:goal.id, goal_name:goalEdit.name.trim(), target:Number(goalEdit.target), inviter_name:userName||userEmail}
+        });
+      }
+    }
+    setEditId(null); setGoalEditErr(''); onReload();
   };
 
   const leaveGoal = async (goalId) => {
@@ -823,7 +864,7 @@ function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
             )
           ),
           // ── Deposit form ────────────────────────────────────────────────
-          isEd && h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.85rem',marginBottom:'.75rem'}},
+          isEd && editMode==='dep' && h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.85rem',marginBottom:'.75rem'}},
             h('div',{style:{fontSize:10,textTransform:'uppercase',color:'var(--tx3)',letterSpacing:'.1em',marginBottom:10}},'Lägg till insättning'),
             h('div',{className:'g2',style:{marginBottom:8}},
               h('div',null,
@@ -879,12 +920,58 @@ function SharedTab({userId, userEmail, userName, sharedGoals, onReload}) {
               ))
             )
           ),
-          // ── Actions ────────────────────────────────────────────────────────
+          // ── Inline panel: deposit ──────────────────────────────────────────
+          // (already rendered above via isEd && editMode==='dep')
+
+          // ── Inline panel: change monthly ───────────────────────────────────
+          isEd && editMode==='monthly' && h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.85rem',marginBottom:'.75rem'}},
+            h('div',{style:{fontSize:10,textTransform:'uppercase',color:'var(--tx3)',letterSpacing:'.1em',marginBottom:10}},'Ändra månadsinsättning'),
+            h('div',{style:{marginBottom:10}},
+              h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Nytt belopp/mån (kr)'),
+              h(NumInput,{value:newMonthly,onChange:setNewMonthly})
+            ),
+            h('div',{style:{display:'flex',gap:7}},
+              h('button',{className:'btn-p',style:{fontSize:12,padding:'7px 16px'},onClick:()=>saveMonthly(goal.id)},'Spara'),
+              h('button',{className:'btn-s',style:{fontSize:12,padding:'7px 12px'},onClick:()=>setEditId(null)},'Avbryt')
+            )
+          ),
+
+          // ── Inline panel: edit goal ─────────────────────────────────────────
+          isEd && editMode==='goal' && h('div',{style:{background:'var(--bg3)',borderRadius:'var(--r)',padding:'.85rem',marginBottom:'.75rem'}},
+            h('div',{style:{fontSize:10,textTransform:'uppercase',color:'var(--tx3)',letterSpacing:'.1em',marginBottom:10}},'Redigera mål'),
+            h('div',{className:'g2',style:{marginBottom:8}},
+              h('div',null,
+                h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Målnamn'),
+                h(TxtInput,{value:goalEdit.name,onChange:v=>setGoalEdit(p=>({...p,name:v})),ph:'Namn på målet'})
+              ),
+              h('div',null,
+                h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Nytt målbelopp (kr)'),
+                h(NumInput,{value:goalEdit.target,onChange:v=>setGoalEdit(p=>({...p,target:v}))})
+              )
+            ),
+            h('div',{style:{marginBottom:8}},
+              h('div',{style:{fontSize:11,color:'var(--tx2)',marginBottom:4}},'Bjud in ytterligare person (e-post, valfritt)'),
+              h(TxtInput,{value:goalEdit.email,onChange:v=>setGoalEdit(p=>({...p,email:v})),ph:'namn@hotmail.com',type:'email'})
+            ),
+            goalEditErr && h(Tip,{text:goalEditErr,type:'err'}),
+            h('div',{style:{display:'flex',gap:7}},
+              h('button',{className:'btn-p',style:{fontSize:12,padding:'7px 16px'},onClick:()=>saveGoalEdit(goal)},'Spara ändringar'),
+              h('button',{className:'btn-s',style:{fontSize:12,padding:'7px 12px'},onClick:()=>setEditId(null)},'Avbryt')
+            )
+          ),
+
+          // ── Action buttons ──────────────────────────────────────────────────
           !isEd && h('div',{style:{display:'flex',gap:7,flexWrap:'wrap'}},
             h('button',{className:'btn-p',style:{fontSize:11,padding:'6px 14px'},
-              onClick:()=>{setEditId(goal.id);setDepAmt(0);setDepNote('');setDepErr('');}},
-              '+ Lägg till insättning'),
-            h('button',{className:'btn-g',style:{color:'var(--red)'},onClick:()=>leaveGoal(goal.id)},'Lämna')
+              onClick:()=>{setEditId(goal.id);setEditMode('dep');setDepAmt(0);setDepNote('');setDepErr('');}},
+              '+ Insättning'),
+            h('button',{className:'btn-s',style:{fontSize:11,padding:'6px 12px'},
+              onClick:()=>{setEditId(goal.id);setEditMode('monthly');setNewMonthly(myM);}},
+              'Ändra /mån'),
+            h('button',{className:'btn-s',style:{fontSize:11,padding:'6px 12px'},
+              onClick:()=>{setEditId(goal.id);setEditMode('goal');setGoalEdit({name:goal.name,target:goal.target,email:''});setGoalEditErr('');}},
+              'Redigera mål'),
+            h('button',{className:'btn-g',style:{color:'var(--red)',fontSize:11},onClick:()=>leaveGoal(goal.id)},'Lämna')
           )
         )
       );
