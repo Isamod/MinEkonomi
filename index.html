@@ -119,17 +119,18 @@ button:active { transform: scale(.97); }
 /* ── 50/30/20 ────────────────────────────────────────────────────────────── */
 .rule-grid { border-radius: var(--r); overflow: hidden; border: 1px solid var(--bd); margin-bottom: .85rem; }
 .rule-cell { padding: 1.1rem; }
-.rule-cell.needs { background: #1e3f70; border-bottom: 3px solid #5ca3ff; }
-.rule-cell.wants { background: #4a2c00; border-bottom: 3px solid #f0b429; }
-.rule-cell.saves { background: #1c4020; border-bottom: 3px solid #7ecb52; }
+.rule-cell.needs { background: #B8D8BA; border-bottom: 3px solid #5a9e5e; }
+.rule-cell.wants { background: #FCDDBC; border-bottom: 3px solid #d4884a; }
+.rule-cell.saves { background: #EF959D; border-bottom: 3px solid #c04050; }
 .rule-pct { font-size: 28px; font-family: Georgia, serif; letter-spacing: -.02em; margin-bottom: 3px; font-weight: 700; }
-.rule-cell.needs .rule-pct, .rule-cell.needs .rule-lbl { color: #90c8ff; }
-.rule-cell.wants .rule-pct, .rule-cell.wants .rule-lbl { color: #f5c842; }
-.rule-cell.saves .rule-pct, .rule-cell.saves .rule-lbl { color: #a0e070; }
-.rule-cell.needs .rule-pct { text-shadow: 0 0 24px rgba(90,160,255,.35); }
-.rule-cell.wants .rule-pct { text-shadow: 0 0 24px rgba(240,180,40,.35); }
-.rule-cell.saves .rule-pct { text-shadow: 0 0 24px rgba(120,220,80,.35); }
+.rule-cell.needs .rule-pct, .rule-cell.needs .rule-lbl { color: #1e3a20; }
+.rule-cell.wants .rule-pct, .rule-cell.wants .rule-lbl { color: #4a2800; }
+.rule-cell.saves .rule-pct, .rule-cell.saves .rule-lbl { color: #4a1020; }
+.rule-cell.needs .rule-pct { text-shadow: none; }
+.rule-cell.wants .rule-pct { text-shadow: none; }
+.rule-cell.saves .rule-pct { text-shadow: none; }
 .rule-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; margin-bottom: 8px; }
+.rule-cell.needs .tip, .rule-cell.wants .tip, .rule-cell.saves .tip { color: #1c1b18; }
 
 /* ── PROGRESS ────────────────────────────────────────────────────────────── */
 .prog-t { height: 7px; border-radius: 4px; background: var(--bg3); overflow: hidden; }
@@ -526,16 +527,18 @@ function BudgetTab({budget, onChange, visibleJarMon}) {
     h(Card,null,
       h('span',{className:'lbl'},'50/30/20-regeln'),
       h('div',{className:'rule-grid g3'},
-        [{cls:'needs',lbl:'Fasta',p:np,rec:50,v:kr(fixed),bad:np>50},
-         {cls:'wants',lbl:'Nöje',  p:wp,rec:30,v:kr(fun),  bad:wp>30},
-         {cls:'saves',lbl:'Sparande',p:sp,rec:20,v:kr(visibleJarMon),bad:sp<20}
-        ].map(({cls,lbl,p,rec,v,bad})=>h('div',{key:cls,className:'rule-cell '+cls},
+        [{cls:'needs',lbl:'Fasta',    p:np,rec:50,amt:fixed,          bad:np>50},
+         {cls:'wants',lbl:'Nöje',     p:wp,rec:30,amt:fun,            bad:wp>30},
+         {cls:'saves',lbl:'Sparande', p:sp,rec:20,amt:visibleJarMon,  bad:sp<20||sp>100}
+        ].map(({cls,lbl,p,rec,amt,bad})=>h('div',{key:cls,className:'rule-cell '+cls},
           h('div',{className:'rule-lbl'},lbl),
           h('div',{className:'rule-pct'},p+'%'),
           h('div',{style:{fontSize:10,color:'var(--tx3)',marginBottom:4}},(cls==='saves'?'Min':'Max')+' '+rec+'%'),
-          h('div',{style:{fontSize:11}}),
+          h('div',{style:{fontSize:12,fontWeight:600,color:'inherit',marginBottom:2}},kr(amt)),
           h('div',{style:{fontSize:10,color:bad?'var(--red)':'var(--green)'}},
-            cls==='saves'?(p<rec?`${rec-p}pp under mål`:`+${p-rec}pp över`):(bad?`+${p-rec}pp över`:`${rec-p}pp under`)
+            cls==='saves'
+              ? (p<rec ? `${rec-p}% under mål` : p>100 ? 'Kontrollera inkomst' : `+${p-rec}% över mål`)
+              : (bad   ? `+${p-rec}% över mål` : `${rec-p}% under max`)
           )
         ))
       ),
@@ -545,9 +548,12 @@ function BudgetTab({budget, onChange, visibleJarMon}) {
         h('div',{style:{width:Math.min(sp,Math.max(0,100-np-wp))+'%',height:'100%',background:'var(--green)'}})
       ),
       h('div',{style:{fontSize:10,color:'var(--tx3)'}},'Fast ',np,'%  ·  Nöje ',wp,'%  ·  Sparande ',sp,'%'),
-      issues.length
-        ? h(Tip,{text:'Att se över: '+issues.join(', ')+'.',type:'w'})
-        : h(Tip,{text:'Din ekonomi matchar 50/30/20-regeln!',type:'ok'})
+      (() => {
+        const over100 = sp > 100;
+        if (over100) return h(Tip,{text:'Sparandeprocenten överstiger 100% — kontrollera att inkomsten är korrekt ifylld.',type:'err'});
+        if (issues.length) return h(Tip,{text:'Att se över: '+issues.join(', ')+'.',type:'w'});
+        return h(Tip,{text:'Din ekonomi matchar 50/30/20-regeln! Fasta max 50%, Nöje max 30%, Sparande minst 20%.',type:'ok'});
+      })()
     )
   );
 }
@@ -950,8 +956,8 @@ function DashboardTab({allBudgets, jars}) {
 
   if (sorted.length < 2) return h('div',{style:{textAlign:'center',padding:'4rem 1rem'}},
     h('div',{style:{fontSize:36,marginBottom:12}},'📊'),
-    h('div',{style:{fontSize:14,fontWeight:600,color:'var(--tx)',marginBottom:6}},'Behöver mer data'),
-    h('div',{style:{fontSize:12,color:'var(--tx3)',lineHeight:1.6,maxWidth:280,margin:'0 auto'}},'Dashboarden aktiveras när du har budget för minst 2 månader. Lägg till nästa månads budget för att börja se din utveckling.')
+    h('div',{style:{fontSize:14,fontWeight:600,color:'var(--tx)',marginBottom:6}},'Historik saknas ännu'),
+    h('div',{style:{fontSize:12,color:'var(--tx3)',lineHeight:1.6,maxWidth:320,margin:'0 auto'}},'Fullständig analys aktiveras när du har fyllt i budget för minst 2 månader. Gå till Budget-fliken, välj nästa månad med pilarna och lägg in din data — sedan visas alla diagram här automatiskt.')
   );
 
   // ── Summary metrics ────────────────────────────────────────────────────────
