@@ -241,9 +241,7 @@ const q = {
   budget:     (uid,mk) => db.from('budgets').select('*').eq('user_id',uid).eq('month_key',mk).maybeSingle(),
   saveBudget: data     => db.from('budgets').upsert(data, {onConflict:'user_id,month_key'}),
   jars:       uid      => db.from('jars').select('*').eq('user_id',uid).order('sort_order'),
-  addJar:     data     => db.from('jars').insert(data).select().single(),
-  updJar:     (id,d)   => db.from('jars').update({...d, updated_at: new Date().toISOString()}).eq('id',id),
-  delJar:     id       => db.from('jars').delete().eq('id',id),
+  // jars stored as jars_data inside budgets — no separate table ops needed
   notifs:     uid      => db.from('notifications').select('*').eq('user_id',uid).eq('read',false).order('created_at',{ascending:false}),
   markRead:   id       => db.from('notifications').update({read:true}).eq('id',id),
   findEmail:  email    => db.rpc('find_user_by_email', {p_email: email.trim().toLowerCase()}),
@@ -1244,15 +1242,14 @@ function App() {
   // ── Bootstrap after login ──────────────────────────────────────────────────
   const bootstrap = async (session) => {
     const uid = session.user.id;
-    const [{data:prof},{data:mths},{data:js},{data:abs}] = await Promise.all([
-      q.profile(uid), q.budgetMths(uid), q.jars(uid), q.allBudgets(uid)
+    const [{data:prof},{data:mths},{data:abs}] = await Promise.all([
+      q.profile(uid), q.budgetMths(uid), q.allBudgets(uid)
     ]);
     if (abs) setAllBudgets(abs);
     if (prof) { setProfile(prof); if (prof.jar_rate!=null) setJarRate(prof.jar_rate); }
-    // Newest-first sort so dropdown shows most recent at top
     const mkList = (mths?.map(m=>m.month_key) || []).sort().reverse();
     setMonths(mkList);
-    if (js) setJars(js);
+    // jars load via loadBudget below
     // Restore last month from localStorage (Problem 3)
     const savedMonth = lsGet('app:month', today());
     setMonth(savedMonth);
@@ -1262,15 +1259,21 @@ function App() {
   };
 
   // ── Load budget for a month ─────────────────────────────────────────────────
+  const defJars = () => [
+    {id:'j1',name:'Buffert',balance:0,monthly:500,target:50000,hidden:false},
+    {id:'j2',name:'Semester',balance:0,monthly:300,target:20000,hidden:false}
+  ];
+
   const loadBudget = async (uid, mk) => {
     const {data} = await q.budget(uid, mk);
     if (data) {
       setBudget({income:data.income||35000, existing:data.existing_savings||0, expenses:data.expenses||defBudget().expenses});
+      setJars(data.jars_data?.length ? data.jars_data : defJars());
       setNeedCreate(false);
     } else {
       const {data:prev} = await q.budget(uid, adjMK(mk,-1));
-      setPrevBud(prev ? {income:prev.income,existing:prev.existing_savings,expenses:prev.expenses} : null);
-      setNeedCreate(true); setBudget(defBudget());
+      setPrevBud(prev ? {income:prev.income, existing:prev.existing_savings, expenses:prev.expenses, jars:prev.jars_data||[]} : null);
+      setNeedCreate(true); setBudget(defBudget()); setJars(defJars());
     }
   };
 
@@ -1303,8 +1306,9 @@ function App() {
   const clearBudget = async () => {
     if (!confirm('Nollställa alla värden för '+fmtMK(month)+'? Månaden finns kvar i menyn men töms på data.')) return;
     const empty = {...defBudget(), income:0, existing:0};
-    setBudget(empty);
-    await q.saveBudget({user_id:sess.user.id, month_key:month, income:0, existing_savings:0, expenses:[], updated_at:new Date().toISOString()});
+    const emptyJars = defJars();
+    setBudget(empty); setJars(emptyJars);
+    await q.saveBudget({user_id:sess.user.id, month_key:month, income:0, existing_savings:0, expenses:[], jars_data:emptyJars, updated_at:new Date().toISOString()});
     const {data:fresh} = await q.allBudgets(sess.user.id); if (fresh) setAllBudgets(fresh);
   };
 
@@ -1360,11 +1364,14 @@ function App() {
 
   // ── Create month ─────────────────────────────────────────────────────────────
   const createMonth = async (copy) => {
-    const b = copy&&prevBud ? {...prevBud,expenses:(prevBud.expenses||[]).map(e=>({...e}))} : defBudget();
-    setBudget(b); setNeedCreate(false);
+    const b     = copy&&prevBud ? {...prevBud,expenses:(prevBud.expenses||[]).map(e=>({...e}))} : defBudget();
+    // Copy jars from previous month but reset balance to 0 — user fills in current balance
+    const newJars = copy&&prevBud?.jars?.length
+      ? prevBud.jars.map(j=>({...j, id:'j'+Date.now()+Math.random().toString(36).slice(2), balance:0}))
+      : defJars();
+    setBudget(b); setJars(newJars); setNeedCreate(false);
     if (!sess) return;
-    await q.saveBudget({user_id:sess.user.id, month_key:month, income:b.income, existing_savings:b.existing||0, expenses:b.expenses});
-    // Now reload months from DB — the new month will appear in the list
+    await q.saveBudget({user_id:sess.user.id, month_key:month, income:b.income, existing_savings:b.existing||0, expenses:b.expenses, jars_data:newJars});
     await reloadMonths();
     const {data:fresh} = await q.allBudgets(sess.user.id); if (fresh) setAllBudgets(fresh);
   };
@@ -1376,68 +1383,41 @@ function App() {
     budTimer.current = setTimeout(async () => {
       if (!sess) return;
       setSaving(true);
-      await q.saveBudget({user_id:sess.user.id, month_key:month, income:newB.income, existing_savings:newB.existing, expenses:newB.expenses, updated_at:new Date().toISOString()});
+      await q.saveBudget({user_id:sess.user.id, month_key:month, income:newB.income, existing_savings:newB.existing, expenses:newB.expenses, jars_data:jars, updated_at:new Date().toISOString()});
       const {data:fresh} = await q.allBudgets(sess.user.id);
       if (fresh) setAllBudgets(fresh);
       setSaving(false);
     }, 800);
   };
 
-  // ── Jar operations (Problem 1 fix) ────────────────────────────────────────────
-  const addJar = async () => {
-    if (!sess) return;
-    setJarErr('');
-    const newJar = {user_id:sess.user.id, name:'', balance:0, monthly:0, target:0, hidden:false, sort_order:jars.length};
-    // Optimistic update first so UI responds immediately
-    const tempId = 'temp-'+Date.now();
-    setJars(p=>[...p,{...newJar,id:tempId}]);
-    const {data, error} = await q.addJar(newJar);
-    if (error) {
-      // Rollback on failure and show error
-      setJars(p=>p.filter(j=>j.id!==tempId));
-      setJarErr(error.message);
-      console.error('[addJar]', error);
-      return;
-    }
-    // Replace temp with real row
-    setJars(p=>p.map(j=>j.id===tempId?data:j));
+  // ── Jar operations — jars are now month-specific (stored in budget.jars_data) ──
+  // All operations: update local state immediately, then debounce save to DB.
+  const jarSaveTimer = useRef(null);
+
+  const persistJars = (newJars) => {
+    clearTimeout(jarSaveTimer.current);
+    jarSaveTimer.current = setTimeout(async () => {
+      if (!sess) return;
+      await q.saveBudget({user_id:sess.user.id, month_key:month, jars_data:newJars, updated_at:new Date().toISOString()});
+    }, 600);
   };
 
-  const updateJar = async (id, field, val) => {
-    // _flush = save current row to DB on blur.
-    // Uses functional setJars so the callback always reads the LATEST state,
-    // never a stale closure captured at call-time.
-    if (field==='_flush') {
-      if (typeof id === 'string' && id.startsWith('temp-')) return;
-      clearTimeout(jarTimers.current[id]);
-      jarTimers.current[id] = setTimeout(() => {
-        setJars(current => {
-          const j = current.find(x => x.id === id);
-          if (j) {
-            q.updJar(id, {name:j.name, balance:j.balance, monthly:j.monthly, target:j.target, hidden:j.hidden})
-              .then(({error}) => { if (error) { setJarErr(error.message); console.error('[flush]', error); } });
-          }
-          return current; // no state change, just a read
-        });
-      }, 350);
-      return;
-    }
-    // Optimistic UI update
-    setJars(prev => prev.map(j => j.id===id ? {...j,[field]:val} : j));
-    // Immediately persist booleans and strings (hidden toggle, name field)
-    if (typeof val==='boolean' || typeof val==='string') {
-      if (typeof id === 'string' && id.startsWith('temp-')) return;
-      const {error} = await q.updJar(id, {[field]: val});
-      if (error) { setJarErr(error.message); console.error('[updateJar]', error); }
-    }
+  const addJar = () => {
+    const newJar = {id:'j'+Date.now(), name:'', balance:0, monthly:0, target:0, hidden:false};
+    setJars(p => { const n=[...p,newJar]; persistJars(n); return n; });
   };
 
-  const deleteJar = async (id) => {
-    setJars(p=>p.filter(j=>j.id!==id));
-    if (!id.startsWith('temp-')) {
-      const {error} = await q.delJar(id);
-      if (error) { setJarErr(error.message); console.error('[deleteJar]',error); }
-    }
+  const updateJar = (id, field, val) => {
+    if (field==='_flush') return; // no-op, handled by onBlur → persistJars already called
+    setJars(prev => {
+      const n = prev.map(j => j.id===id ? {...j,[field]:val} : j);
+      persistJars(n);
+      return n;
+    });
+  };
+
+  const deleteJar = (id) => {
+    setJars(prev => { const n=prev.filter(j=>j.id!==id); persistJars(n); return n; });
   };
 
   const saveJarRate = async (r) => {
